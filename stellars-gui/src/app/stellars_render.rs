@@ -44,4 +44,8 @@ impl StellarsRender {
 
         self.render_buffer.render().unwrap();
     }
+
+    pub fn resize(&mut self, width: u32, height: u32) {
+        self.render_buffer.resize_surface(width, height).unwrap();
+    }
 }
