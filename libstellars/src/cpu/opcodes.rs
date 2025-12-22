@@ -193,11 +193,30 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |_| {
         /* 0x1C */
     },
-    |_| {
+    |cpu| {
         /* 0x1D */
+        /* ORA nnnn,X */
+        let low_nn = cpu.fetch_bytes();
+        let high_nn = cpu.fetch_bytes();
+        let address = ((high_nn as u16) << 8 | low_nn as u16) + cpu.registers.x as u16;
+        cpu.registers.acc |= cpu.read_byte(address);
+
+        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_n(cpu.registers.acc >> 7 == 1);
     },
-    |_| {
+    |cpu| {
         /* 0x1E */
+        /* ASL nnnn */
+        let low_nn = cpu.fetch_bytes();
+        let high_nn = cpu.fetch_bytes();
+        let address = ((high_nn as u16) << 8 | low_nn as u16) + cpu.registers.x as u16;
+        let old_value = cpu.read_byte(address);
+        let result = old_value << 1;
+        cpu.write_byte(address, result);
+
+        cpu.registers.set_c(old_value >> 7 == 1);
+        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_n(result >> 7 == 1);
     },
     |_| {
         /* 0x1F */
