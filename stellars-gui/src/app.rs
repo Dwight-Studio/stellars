@@ -53,6 +53,11 @@ impl ApplicationHandler for App {
                     stellars_render.render();
                 }
             }
+            WindowEvent::Resized(size) => {
+                if window_id == stellars_render.window.id() && size.width > 0 && size.height > 0 {
+                    stellars_render.resize(size.width, size.height);
+                }
+            }
             _ => {}
         }
     }

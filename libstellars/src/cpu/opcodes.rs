@@ -14,9 +14,9 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         /* 0x01 */
         /* ORA (nn, X) */
         let nn = cpu.fetch_bytes();
-        let lo_address = cpu.read_byte(nn.wrapping_add(cpu.registers.x) as u16);
-        let hi_address = cpu.read_byte(nn.wrapping_add(cpu.registers.x).wrapping_add(1) as u16);
-        let address = (hi_address as u16) << 8 | lo_address as u16;
+        let low_address = cpu.read_byte(nn.wrapping_add(cpu.registers.x) as u16);
+        let high_address = cpu.read_byte(nn.wrapping_add(cpu.registers.x).wrapping_add(1) as u16);
+        let address = (high_address as u16) << 8 | low_address as u16;
         cpu.registers.acc |= cpu.read_byte(address);
 
         cpu.registers.set_z(cpu.registers.acc == 0);
@@ -125,9 +125,9 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         /* 0x11 */
         /* ORA (nn),Y */
         let nn = cpu.fetch_bytes();
-        let lo_address = cpu.read_byte(nn as u16);
-        let hi_address = cpu.read_byte((nn + 1) as u16);
-        let address = ((hi_address as u16) << 8 | lo_address as u16) + cpu.registers.y as u16;
+        let low_address = cpu.read_byte(nn as u16);
+        let high_address = cpu.read_byte((nn + 1) as u16);
+        let address = ((high_address as u16) << 8 | low_address as u16) + cpu.registers.y as u16;
         cpu.registers.acc |= cpu.read_byte(address);
 
         cpu.registers.set_z(cpu.registers.acc == 0);
