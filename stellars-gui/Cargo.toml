@@ -5,3 +5,5 @@ edition = "2024"
 
 [dependencies]
 libstellars = {path = "../libstellars"}
+winit = "0.30.12"
+pixels = "0.15.0"
