@@ -179,7 +179,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let low_nn = cpu.fetch_bytes();
         let high_nn = cpu.fetch_bytes();
         let address = ((high_nn as u16) << 8 | low_nn as u16) + cpu.registers.y as u16;
-        cpu.registers.acc |= cpu.read_byte(address as u16);
+        cpu.registers.acc |= cpu.read_byte(address);
 
         cpu.registers.set_z(cpu.registers.acc == 0);
         cpu.registers.set_n(cpu.registers.acc >> 7 == 1);
