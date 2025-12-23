@@ -44,9 +44,7 @@ impl Cpu {
     }
 
     fn fetch_byte(&mut self) -> u8 {
-        let data;
-
-        data = self.mem.borrow().read_byte(self.registers.pc);
+        let data = self.mem.borrow().read_byte(self.registers.pc);
         self.registers.pc += 1;
 
         data
