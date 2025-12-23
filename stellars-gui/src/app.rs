@@ -1,11 +1,11 @@
+use crate::app::stellars_render::StellarsRender;
 use std::process::exit;
 use std::sync::Arc;
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
-use winit::event::WindowEvent;
-use winit::event_loop::{ActiveEventLoop};
+use winit::event::{Event, WindowEvent};
+use winit::event_loop::ActiveEventLoop;
 use winit::window::{Window, WindowId};
-use crate::app::stellars_render::StellarsRender;
 
 mod stellars_render;
 
@@ -51,11 +51,6 @@ impl ApplicationHandler for App {
             WindowEvent::RedrawRequested => {
                 if window_id == stellars_render.window.id() {
                     stellars_render.render();
-                }
-            }
-            WindowEvent::Resized(size) => {
-                if window_id == stellars_render.window.id() && size.width > 0 && size.height > 0 {
-                    stellars_render.resize(size.width, size.height);
                 }
             }
             _ => {}

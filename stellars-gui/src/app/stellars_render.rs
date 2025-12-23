@@ -21,7 +21,7 @@ impl StellarsRender {
             libstellars::SCREEN_HEIGHT as u32,
             surface_texture,
         )
-        .enable_vsync(false)
+        //.enable_vsync(false)
         .blend_state(wgpu::BlendState::REPLACE)
         .build()
         .unwrap();
@@ -43,9 +43,5 @@ impl StellarsRender {
         frame[..buff.len()].copy_from_slice(buff.as_slice());
 
         self.render_buffer.render().unwrap();
-    }
-
-    pub fn resize(&mut self, width: u32, height: u32) {
-        self.render_buffer.resize_surface(width, height).unwrap();
     }
 }
