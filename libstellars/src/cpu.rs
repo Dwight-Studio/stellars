@@ -29,6 +29,14 @@ impl Cpu {
     }
 
     //fixme
+    fn read_stack(&mut self) -> u8 {
+        let address = 0x100 + self.registers.sp as u16;
+        self.registers.sp += 1;
+
+        0x00
+    }
+
+    //fixme
     fn fetch_bytes(&mut self) -> u8 {
         let data = 0x00;
 
