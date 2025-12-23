@@ -982,8 +982,14 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |_| {
         /* 0x80 */
     },
-    |_| {
+    |cpu| {
         /* 0x81 */
+        /* STA (nn,X) */
+        let nn = cpu.fetch_byte();
+        let low_address = cpu.read_byte(nn.wrapping_add(cpu.registers.x) as u16);
+        let high_address = cpu.read_byte(nn.wrapping_add(cpu.registers.x).wrapping_add(1) as u16);
+        let address = (high_address as u16) << 8 | low_address as u16;
+        cpu.write_byte(address, cpu.registers.acc);
     },
     |_| {
         /* 0x82 */
@@ -991,38 +997,72 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |_| {
         /* 0x83 */
     },
-    |_| {
+    |cpu| {
         /* 0x84 */
+        /* STY nn */
+        let nn = cpu.fetch_byte();
+        cpu.write_byte(nn as u16, cpu.registers.y);
     },
-    |_| {
+    |cpu| {
         /* 0x85 */
+        /* STA nn */
+        let nn = cpu.fetch_byte();
+        cpu.write_byte(nn as u16, cpu.registers.acc);
     },
-    |_| {
+    |cpu| {
         /* 0x86 */
+        /* STX nn */
+        let nn = cpu.fetch_byte();
+        cpu.write_byte(nn as u16, cpu.registers.x);
     },
     |_| {
         /* 0x87 */
     },
-    |_| {
+    |cpu| {
         /* 0x88 */
+        /* DEY */
+        cpu.registers.y -= 1;
+
+        cpu.registers.set_z(cpu.registers.y == 0);
+        cpu.registers.set_n(cpu.registers.y >> 7 == 1);
     },
     |_| {
         /* 0x89 */
     },
-    |_| {
+    |cpu| {
         /* 0x8A */
+        /* TXA */
+        cpu.registers.acc = cpu.registers.x;
+
+        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_n(cpu.registers.acc >> 7 == 1);
     },
     |_| {
         /* 0x8B */
     },
-    |_| {
+    |cpu| {
         /* 0x8C */
+        /* STY nnnn */
+        let low_nn = cpu.fetch_byte();
+        let high_nn = cpu.fetch_byte();
+        let address = (high_nn as u16) << 8 | low_nn as u16;
+        cpu.write_byte(address, cpu.registers.y);
     },
-    |_| {
+    |cpu| {
         /* 0x8D */
+        /* STA nnnn */
+        let low_nn = cpu.fetch_byte();
+        let high_nn = cpu.fetch_byte();
+        let address = (high_nn as u16) << 8 | low_nn as u16;
+        cpu.write_byte(address, cpu.registers.acc);
     },
-    |_| {
+    |cpu| {
         /* 0x8E */
+        /* STX nnnn */
+        let low_nn = cpu.fetch_byte();
+        let high_nn = cpu.fetch_byte();
+        let address = (high_nn as u16) << 8 | low_nn as u16;
+        cpu.write_byte(address, cpu.registers.x);
     },
     |_| {
         /* 0x8F */
