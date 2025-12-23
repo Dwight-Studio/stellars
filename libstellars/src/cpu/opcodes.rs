@@ -1282,11 +1282,25 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |_| {
         /* 0xAF */
     },
-    |_| {
+    |cpu| {
         /* 0xB0 */
+        /* BCS nn */
+        if cpu.registers.get_c() {
+            cpu.registers.pc = cpu.registers.pc.wrapping_add_signed(cpu.fetch_byte() as i8 as i16);
+        }
     },
-    |_| {
+    |cpu| {
         /* 0xB1 */
+        /* LDA (nn),Y */
+        let nn = cpu.fetch_byte();
+        let low_address = cpu.read_byte(nn as u16);
+        let high_address = cpu.read_byte((nn + 1) as u16);
+        let address = ((high_address as u16) << 8 | low_address as u16) + cpu.registers.y as u16;
+        let value = cpu.read_byte(address);
+        cpu.registers.acc = value;
+
+        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_n(cpu.registers.acc >> 7 == 1);
     },
     |_| {
         /* 0xB2 */
@@ -1294,38 +1308,98 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |_| {
         /* 0xB3 */
     },
-    |_| {
+    |cpu| {
         /* 0xB4 */
+        /* LDY nn,X */
+        let nn = cpu.fetch_byte();
+        let address = nn.wrapping_add(cpu.registers.x);
+        cpu.registers.y = cpu.read_byte(address as u16);
+
+        cpu.registers.set_z(cpu.registers.y == 0);
+        cpu.registers.set_n(cpu.registers.y >> 7 == 1);
     },
-    |_| {
+    |cpu| {
         /* 0xB5 */
+        /* LDA nn,X */
+        let nn = cpu.fetch_byte();
+        let address = nn.wrapping_add(cpu.registers.x);
+        cpu.registers.acc = cpu.read_byte(address as u16);
+
+        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_n(cpu.registers.acc >> 7 == 1);
     },
-    |_| {
+    |cpu| {
         /* 0xB6 */
+        /* LDX nn,X */
+        let nn = cpu.fetch_byte();
+        let address = nn.wrapping_add(cpu.registers.x);
+        cpu.registers.x = cpu.read_byte(address as u16);
+
+        cpu.registers.set_z(cpu.registers.x == 0);
+        cpu.registers.set_n(cpu.registers.x >> 7 == 1);
     },
     |_| {
         /* 0xB7 */
     },
-    |_| {
+    |cpu| {
         /* 0xB8 */
+        /* CLV */
+        cpu.registers.set_v(false);
     },
-    |_| {
+    |cpu| {
         /* 0xB9 */
+        /* LDA nnnn,Y */
+        let low_nn = cpu.fetch_byte();
+        let high_nn = cpu.fetch_byte();
+        let address = ((high_nn as u16) << 8 | low_nn as u16) + cpu.registers.y as u16;
+        cpu.registers.acc = cpu.read_byte(address);
+
+        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_n(cpu.registers.acc >> 7 == 1);
     },
-    |_| {
+    |cpu| {
         /* 0xBA */
+        /* TSX */
+        cpu.registers.sp = cpu.registers.x;
+
+        cpu.registers.set_z(cpu.registers.sp == 0);
+        cpu.registers.set_n(cpu.registers.sp >> 7 == 1);
     },
     |_| {
         /* 0xBB */
     },
-    |_| {
+    |cpu| {
         /* 0xBC */
+        /* LDY nnnn,X */
+        let low_nn = cpu.fetch_byte();
+        let high_nn = cpu.fetch_byte();
+        let address = ((high_nn as u16) << 8 | low_nn as u16) + cpu.registers.x as u16;
+        cpu.registers.y = cpu.read_byte(address);
+
+        cpu.registers.set_z(cpu.registers.y == 0);
+        cpu.registers.set_n(cpu.registers.y >> 7 == 1);
     },
-    |_| {
+    |cpu| {
         /* 0xBD */
+        /* LDA nnnn,X */
+        let low_nn = cpu.fetch_byte();
+        let high_nn = cpu.fetch_byte();
+        let address = ((high_nn as u16) << 8 | low_nn as u16) + cpu.registers.x as u16;
+        cpu.registers.acc = cpu.read_byte(address);
+
+        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_n(cpu.registers.acc >> 7 == 1);
     },
-    |_| {
+    |cpu| {
         /* 0xBE */
+        /* LDX nnnn,Y */
+        let low_nn = cpu.fetch_byte();
+        let high_nn = cpu.fetch_byte();
+        let address = ((high_nn as u16) << 8 | low_nn as u16) + cpu.registers.y as u16;
+        cpu.registers.x = cpu.read_byte(address);
+
+        cpu.registers.set_z(cpu.registers.x == 0);
+        cpu.registers.set_n(cpu.registers.x >> 7 == 1);
     },
     |_| {
         /* 0xBF */
