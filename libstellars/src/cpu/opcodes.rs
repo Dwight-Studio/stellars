@@ -1154,50 +1154,130 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |_| {
         /* 0x9F */
     },
-    |_| {
+    |cpu| {
         /* 0xA0 */
+        /* LDY #nn */
+        let nn = cpu.fetch_byte();
+        cpu.registers.y = nn;
+
+        cpu.registers.set_z(cpu.registers.y == 0);
+        cpu.registers.set_n(cpu.registers.y >> 7 == 1);
     },
-    |_| {
+    |cpu| {
         /* 0xA1 */
+        /* LDA (nn,X) */
+        let nn = cpu.fetch_byte();
+        let low_address = cpu.read_byte(nn.wrapping_add(cpu.registers.x) as u16);
+        let high_address = cpu.read_byte(nn.wrapping_add(cpu.registers.x).wrapping_add(1) as u16);
+        let address = (high_address as u16) << 8 | low_address as u16;
+        let value = cpu.read_byte(address);
+        cpu.registers.acc = value;
+
+        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_n(cpu.registers.acc >> 7 == 1);
     },
-    |_| {
+    |cpu| {
         /* 0xA2 */
+        /* LDX #nn */
+        let nn = cpu.fetch_byte();
+        cpu.registers.x = nn;
+
+        cpu.registers.set_z(cpu.registers.x == 0);
+        cpu.registers.set_n(cpu.registers.x >> 7 == 1);
     },
     |_| {
         /* 0xA3 */
     },
-    |_| {
+    |cpu| {
         /* 0xA4 */
+        /* LDY nn */
+        let nn = cpu.fetch_byte();
+        cpu.registers.y = cpu.read_byte(nn as u16);
+
+        cpu.registers.set_z(cpu.registers.y == 0);
+        cpu.registers.set_n(cpu.registers.y >> 7 == 1);
     },
-    |_| {
+    |cpu| {
         /* 0xA5 */
+        /* LDA nn */
+        let nn = cpu.fetch_byte();
+        cpu.registers.acc = cpu.read_byte(nn as u16);
+
+        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_n(cpu.registers.acc >> 7 == 1);
     },
-    |_| {
+    |cpu| {
         /* 0xA6 */
+        /* LDX nn */
+        let nn = cpu.fetch_byte();
+        cpu.registers.x = cpu.read_byte(nn as u16);
+
+        cpu.registers.set_z(cpu.registers.x == 0);
+        cpu.registers.set_n(cpu.registers.x >> 7 == 1);
     },
     |_| {
         /* 0xA7 */
     },
-    |_| {
+    |cpu| {
         /* 0xA8 */
+        /* TAY */
+        cpu.registers.y = cpu.registers.acc;
+
+        cpu.registers.set_z(cpu.registers.y == 0);
+        cpu.registers.set_n(cpu.registers.y >> 7 == 1);
     },
-    |_| {
+    |cpu| {
         /* 0xA9 */
+        /* LDA #nn */
+        let nn = cpu.fetch_byte();
+        cpu.registers.acc = nn;
+
+        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_n(cpu.registers.acc >> 7 == 1);
     },
-    |_| {
+    |cpu| {
         /* 0xAA */
+        /* TAX */
+        cpu.registers.x = cpu.registers.acc;
+
+        cpu.registers.set_z(cpu.registers.x == 0);
+        cpu.registers.set_n(cpu.registers.x >> 7 == 1);
     },
     |_| {
         /* 0xAB */
     },
-    |_| {
+    |cpu| {
         /* 0xAC */
+        /* LDY nnnn */
+        let low_nn = cpu.fetch_byte();
+        let high_nn = cpu.fetch_byte();
+        let address = (high_nn as u16) << 8 | low_nn as u16;
+        cpu.registers.y = cpu.read_byte(address);
+
+        cpu.registers.set_z(cpu.registers.y == 0);
+        cpu.registers.set_n(cpu.registers.y >> 7 == 1);
     },
-    |_| {
+    |cpu| {
         /* 0xAD */
+        /* LDA nnnn */
+        let low_nn = cpu.fetch_byte();
+        let high_nn = cpu.fetch_byte();
+        let address = (high_nn as u16) << 8 | low_nn as u16;
+        cpu.registers.acc = cpu.read_byte(address);
+
+        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_n(cpu.registers.acc >> 7 == 1);
     },
-    |_| {
+    |cpu| {
         /* 0xAE */
+        /* LDX nnnn */
+        let low_nn = cpu.fetch_byte();
+        let high_nn = cpu.fetch_byte();
+        let address = (high_nn as u16) << 8 | low_nn as u16;
+        cpu.registers.x = cpu.read_byte(address);
+
+        cpu.registers.set_z(cpu.registers.x == 0);
+        cpu.registers.set_n(cpu.registers.x >> 7 == 1);
     },
     |_| {
         /* 0xAF */
