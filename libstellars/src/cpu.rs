@@ -1,59 +1,62 @@
 mod opcodes;
 
+use std::cell::RefCell;
+use std::rc::Rc;
 use crate::cpu::opcodes::OPCODES;
+use crate::memory::Memory;
 use crate::registers::Registers;
 
-struct Cpu {
+pub struct Cpu {
+    mem: Rc<RefCell<Memory>>,
+    
     registers: Registers,
     cycles: u64
 }
 
 impl Cpu {
-    pub fn new() -> Self {
+    pub fn new(mem: Rc<RefCell<Memory>>) -> Self {
         Cpu {
+            mem,
+            
             registers: Registers::new(),
             cycles: 0
         }
     }
 
     pub fn execute(&mut self) {
-        let opcode = self.fetch_bytes();
+        let opcode = self.fetch_byte();
 
         OPCODES[opcode as usize](self);
     }
 
-    //fixme
     fn write_stack(&mut self, value: u8) {
         let address = 0x100 + self.registers.sp as u16;
         self.registers.sp -= 1;
+        
+        self.mem.borrow_mut().write_byte(address, value);
     }
 
-    //fixme
     fn read_stack(&mut self) -> u8 {
         let address = 0x100 + self.registers.sp as u16;
         self.registers.sp += 1;
 
-        0x00
+        self.mem.borrow().read_byte(address)
     }
 
-    //fixme
-    fn fetch_bytes(&mut self) -> u8 {
-        let data = 0x00;
+    fn fetch_byte(&mut self) -> u8 {
+        let data;
 
+        data = self.mem.borrow().read_byte(self.registers.pc);
         self.registers.pc += 1;
 
         data
     }
 
-    //fixme
     fn read_byte(&self, address: u16) -> u8 {
-        let data = 0x00;
-
-        data
+        self.mem.borrow().read_byte(address)
     }
 
-    //fixme
     fn write_byte(&mut self, address: u16, value: u8) {
-
+        self.mem.borrow_mut().write_byte(address, value);
     }
 }

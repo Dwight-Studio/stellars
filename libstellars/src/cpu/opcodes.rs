@@ -13,7 +13,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x01 */
         /* ORA (nn, X) */
-        let nn = cpu.fetch_bytes();
+        let nn = cpu.fetch_byte();
         let low_address = cpu.read_byte(nn.wrapping_add(cpu.registers.x) as u16);
         let high_address = cpu.read_byte(nn.wrapping_add(cpu.registers.x).wrapping_add(1) as u16);
         let address = (high_address as u16) << 8 | low_address as u16;
@@ -34,7 +34,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x05 */
         /* ORA nn */
-        let nn = cpu.fetch_bytes();
+        let nn = cpu.fetch_byte();
         let value = cpu.read_byte(nn as u16);
         cpu.registers.acc |= value;
 
@@ -44,7 +44,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x06 */
         /* ASL nn */
-        let nn = cpu.fetch_bytes();
+        let nn = cpu.fetch_byte();
         let old_value = cpu.read_byte(nn as u16);
         let result = old_value << 1;
         cpu.write_byte(nn as u16, result);
@@ -64,7 +64,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x09 */
         /* ORA #nn */
-        let nn = cpu.fetch_bytes();
+        let nn = cpu.fetch_byte();
         cpu.registers.acc |= nn;
 
         cpu.registers.set_z(cpu.registers.acc == 0);
@@ -89,8 +89,8 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x0D */
         /* ORA nnnn */
-        let low_nn = cpu.fetch_bytes();
-        let high_nn = cpu.fetch_bytes();
+        let low_nn = cpu.fetch_byte();
+        let high_nn = cpu.fetch_byte();
         let address = (high_nn as u16) << 8 | low_nn as u16;
         cpu.registers.acc |= cpu.read_byte(address);
 
@@ -100,8 +100,8 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x0E */
         /* ASL nnnn */
-        let low_nn = cpu.fetch_bytes();
-        let high_nn = cpu.fetch_bytes();
+        let low_nn = cpu.fetch_byte();
+        let high_nn = cpu.fetch_byte();
         let address = (high_nn as u16) << 8 | low_nn as u16;
         let old_value = cpu.read_byte(address);
         let result = old_value << 1;
@@ -118,13 +118,13 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         /* 0x10 */
         /* BPL nnn */
         if !cpu.registers.get_n() {
-            cpu.registers.pc = cpu.registers.pc.wrapping_add_signed(cpu.fetch_bytes() as i8 as i16);
+            cpu.registers.pc = cpu.registers.pc.wrapping_add_signed(cpu.fetch_byte() as i8 as i16);
         }
     },
     |cpu| {
         /* 0x11 */
         /* ORA (nn),Y */
-        let nn = cpu.fetch_bytes();
+        let nn = cpu.fetch_byte();
         let low_address = cpu.read_byte(nn as u16);
         let high_address = cpu.read_byte((nn + 1) as u16);
         let address = ((high_address as u16) << 8 | low_address as u16) + cpu.registers.y as u16;
@@ -145,7 +145,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x15 */
         /* ORA nn,X */
-        let nn = cpu.fetch_bytes();
+        let nn = cpu.fetch_byte();
         let address = nn.wrapping_add(cpu.registers.x);
         cpu.registers.acc |= cpu.read_byte(address as u16);
 
@@ -155,7 +155,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x16 */
         /* ASL nn,X */
-        let nn = cpu.fetch_bytes();
+        let nn = cpu.fetch_byte();
         let address = nn.wrapping_add(cpu.registers.x);
         let old_value = cpu.read_byte(address as u16);
         let result = old_value << 1;
@@ -176,8 +176,8 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x19 */
         /* ORA nnnn,Y */
-        let low_nn = cpu.fetch_bytes();
-        let high_nn = cpu.fetch_bytes();
+        let low_nn = cpu.fetch_byte();
+        let high_nn = cpu.fetch_byte();
         let address = ((high_nn as u16) << 8 | low_nn as u16) + cpu.registers.y as u16;
         cpu.registers.acc |= cpu.read_byte(address);
 
@@ -196,8 +196,8 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x1D */
         /* ORA nnnn,X */
-        let low_nn = cpu.fetch_bytes();
-        let high_nn = cpu.fetch_bytes();
+        let low_nn = cpu.fetch_byte();
+        let high_nn = cpu.fetch_byte();
         let address = ((high_nn as u16) << 8 | low_nn as u16) + cpu.registers.x as u16;
         cpu.registers.acc |= cpu.read_byte(address);
 
@@ -207,8 +207,8 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x1E */
         /* ASL nnnn,X */
-        let low_nn = cpu.fetch_bytes();
-        let high_nn = cpu.fetch_bytes();
+        let low_nn = cpu.fetch_byte();
+        let high_nn = cpu.fetch_byte();
         let address = ((high_nn as u16) << 8 | low_nn as u16) + cpu.registers.x as u16;
         let old_value = cpu.read_byte(address);
         let result = old_value << 1;
@@ -226,14 +226,14 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         /* JSR nnnn */
         cpu.write_stack(((cpu.registers.pc + 1) >> 8) as u8);
         cpu.write_stack((cpu.registers.pc + 1) as u8);
-        let low_address = cpu.fetch_bytes();
-        let high_address = cpu.fetch_bytes();
+        let low_address = cpu.fetch_byte();
+        let high_address = cpu.fetch_byte();
         cpu.registers.pc = (high_address as u16) << 8 | low_address as u16;
     },
     |cpu| {
         /* 0x21 */
         /* AND (nn,X) */
-        let nn = cpu.fetch_bytes();
+        let nn = cpu.fetch_byte();
         let low_address = cpu.read_byte(nn.wrapping_add(cpu.registers.x) as u16);
         let high_address = cpu.read_byte(nn.wrapping_add(cpu.registers.x).wrapping_add(1) as u16);
         let address = (high_address as u16) << 8 | low_address as u16;
@@ -251,7 +251,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x24 */
         /* BIT nn */
-        let nn = cpu.fetch_bytes();
+        let nn = cpu.fetch_byte();
         let value = cpu.read_byte(nn as u16);
         let result = cpu.registers.acc & value;
 
@@ -262,7 +262,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x25 */
         /* AND nn */
-        let nn = cpu.fetch_bytes();
+        let nn = cpu.fetch_byte();
         let value = cpu.read_byte(nn as u16);
         cpu.registers.acc &= value;
 
@@ -272,7 +272,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x26 */
         /* ROL nn */
-        let nn = cpu.fetch_bytes();
+        let nn = cpu.fetch_byte();
         let old_value = cpu.read_byte(nn as u16);
         let low_value = cpu.registers.get_c() as u8;
         let result = (old_value << 1) | low_value;
@@ -293,7 +293,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x29 */
         /* AND #nn */
-        let nn = cpu.fetch_bytes();
+        let nn = cpu.fetch_byte();
         cpu.registers.acc &= nn;
 
         cpu.registers.set_z(cpu.registers.acc == 0);
@@ -316,8 +316,8 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x2C */
         /* BIT nnnn */
-        let low_nn = cpu.fetch_bytes();
-        let high_nn = cpu.fetch_bytes();
+        let low_nn = cpu.fetch_byte();
+        let high_nn = cpu.fetch_byte();
         let address = ((high_nn as u16) << 8 | low_nn as u16) + cpu.registers.x as u16;
         let value = cpu.read_byte(address);
         let result = cpu.registers.acc & value;
@@ -329,8 +329,8 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x2D */
         /* AND nnnn */
-        let low_nn = cpu.fetch_bytes();
-        let high_nn = cpu.fetch_bytes();
+        let low_nn = cpu.fetch_byte();
+        let high_nn = cpu.fetch_byte();
         let address = (high_nn as u16) << 8 | low_nn as u16;
         cpu.registers.acc &= cpu.read_byte(address);
 
@@ -340,8 +340,8 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x2E */
         /* ROL nnnn */
-        let low_nn = cpu.fetch_bytes();
-        let high_nn = cpu.fetch_bytes();
+        let low_nn = cpu.fetch_byte();
+        let high_nn = cpu.fetch_byte();
         let address = (high_nn as u16) << 8 | low_nn as u16;
         let old_value = cpu.read_byte(address);
         let low_value = cpu.registers.get_c() as u8;
@@ -359,13 +359,13 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         /* 0x30 */
         /* BMI nn */
         if cpu.registers.get_n() {
-            cpu.registers.pc = cpu.registers.pc.wrapping_add_signed(cpu.fetch_bytes() as i8 as i16);
+            cpu.registers.pc = cpu.registers.pc.wrapping_add_signed(cpu.fetch_byte() as i8 as i16);
         }
     },
     |cpu| {
         /* 0x31 */
         /* AND (nn),Y */
-        let nn = cpu.fetch_bytes();
+        let nn = cpu.fetch_byte();
         let low_address = cpu.read_byte(nn as u16);
         let high_address = cpu.read_byte((nn + 1) as u16);
         let address = ((high_address as u16) << 8 | low_address as u16) + cpu.registers.y as u16;
@@ -386,7 +386,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x35 */
         /* AND nn,X */
-        let nn = cpu.fetch_bytes();
+        let nn = cpu.fetch_byte();
         let address = nn.wrapping_add(cpu.registers.x);
         cpu.registers.acc &= cpu.read_byte(address as u16);
 
@@ -396,7 +396,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x36 */
         /* ROL nn,X */
-        let nn = cpu.fetch_bytes();
+        let nn = cpu.fetch_byte();
         let address = nn.wrapping_add(cpu.registers.x);
         let old_value = cpu.read_byte(address as u16);
         let low_value = cpu.registers.get_c() as u8;
@@ -418,8 +418,8 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x39 */
         /* AND nnnn,Y */
-        let low_nn = cpu.fetch_bytes();
-        let high_nn = cpu.fetch_bytes();
+        let low_nn = cpu.fetch_byte();
+        let high_nn = cpu.fetch_byte();
         let address = ((high_nn as u16) << 8 | low_nn as u16) + cpu.registers.y as u16;
         cpu.registers.acc &= cpu.read_byte(address);
 
@@ -438,8 +438,8 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x3D */
         /* AND nnnn,X */
-        let low_nn = cpu.fetch_bytes();
-        let high_nn = cpu.fetch_bytes();
+        let low_nn = cpu.fetch_byte();
+        let high_nn = cpu.fetch_byte();
         let address = ((high_nn as u16) << 8 | low_nn as u16) + cpu.registers.x as u16;
         cpu.registers.acc &= cpu.read_byte(address);
 
@@ -449,8 +449,8 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x3E */
         /* ROL nnnn,X */
-        let low_nn = cpu.fetch_bytes();
-        let high_nn = cpu.fetch_bytes();
+        let low_nn = cpu.fetch_byte();
+        let high_nn = cpu.fetch_byte();
         let address = ((high_nn as u16) << 8 | low_nn as u16) + cpu.registers.x as u16;
         let old_value = cpu.read_byte(address);
         let low_value = cpu.registers.get_c() as u8;

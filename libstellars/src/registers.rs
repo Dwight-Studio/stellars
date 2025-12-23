@@ -14,7 +14,7 @@ impl Registers {
             acc: 0x00,
             x: 0x00,
             y: 0x00,
-            pc: 0x0000,
+            pc: 0xFFFC,
             sp: 0xFF,
             p: 0b0010_0110
         }

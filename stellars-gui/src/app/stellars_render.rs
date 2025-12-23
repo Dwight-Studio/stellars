@@ -1,6 +1,5 @@
 use std::sync::Arc;
 use pixels::{wgpu, Pixels, PixelsBuilder, SurfaceTexture};
-use pixels::wgpu::PresentMode;
 use winit::window::Window;
 
 pub const SCALE_FACTOR: f32 = 5.0;
@@ -22,11 +21,11 @@ impl StellarsRender {
             libstellars::SCREEN_HEIGHT as u32,
             surface_texture,
         )
-        //.enable_vsync(false)
         .blend_state(wgpu::BlendState::REPLACE)
         .build()
         .unwrap();
 
+        // Strange fix for blank window on Windows
         pixels.enable_vsync(false);
 
         Self { window, render_buffer: pixels }
