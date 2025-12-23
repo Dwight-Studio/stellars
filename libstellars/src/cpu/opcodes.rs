@@ -1021,7 +1021,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x88 */
         /* DEY */
-        cpu.registers.y -= 1;
+        cpu.registers.y = cpu.registers.y.wrapping_sub(1);
 
         cpu.registers.set_z(cpu.registers.y == 0);
         cpu.registers.set_n(cpu.registers.y >> 7 == 1);
@@ -1404,11 +1404,29 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |_| {
         /* 0xBF */
     },
-    |_| {
+    |cpu| {
         /* 0xC0 */
+        /* CPY #nn */
+        let nn = cpu.fetch_byte();
+        let result = cpu.registers.y.wrapping_sub(nn);
+
+        cpu.registers.set_c(cpu.registers.y >= nn);
+        cpu.registers.set_z(cpu.registers.y == nn);
+        cpu.registers.set_n(result >> 7 == 1);
     },
-    |_| {
+    |cpu| {
         /* 0xC1 */
+        /* CMP (nn,X) */
+        let nn = cpu.fetch_byte();
+        let low_address = cpu.read_byte(nn.wrapping_add(cpu.registers.x) as u16);
+        let high_address = cpu.read_byte(nn.wrapping_add(cpu.registers.x).wrapping_add(1) as u16);
+        let address = (high_address as u16) << 8 | low_address as u16;
+        let value = cpu.read_byte(address);
+        let result = cpu.registers.acc.wrapping_sub(value);
+
+        cpu.registers.set_c(cpu.registers.acc >= value);
+        cpu.registers.set_z(cpu.registers.acc == value);
+        cpu.registers.set_n(result >> 7 == 1);
     },
     |_| {
         /* 0xC2 */
@@ -1416,38 +1434,109 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |_| {
         /* 0xC3 */
     },
-    |_| {
+    |cpu| {
         /* 0xC4 */
+        /* CPY nn */
+        let nn = cpu.fetch_byte();
+        let value = cpu.read_byte(nn as u16);
+        let result = cpu.registers.y.wrapping_sub(value);
+
+        cpu.registers.set_c(cpu.registers.y >= value);
+        cpu.registers.set_z(cpu.registers.y == value);
+        cpu.registers.set_n(result >> 7 == 1);
     },
-    |_| {
+    |cpu| {
         /* 0xC5 */
+        /* CMP nn */
+        let nn = cpu.fetch_byte();
+        let value = cpu.read_byte(nn as u16);
+        let result = cpu.registers.acc.wrapping_sub(value);
+
+        cpu.registers.set_c(cpu.registers.acc >= value);
+        cpu.registers.set_z(cpu.registers.acc == value);
+        cpu.registers.set_n(result >> 7 == 1);
     },
-    |_| {
+    |cpu| {
         /* 0xC6 */
+        /* DEC nn */
+        let nn = cpu.fetch_byte();
+        let value = cpu.read_byte(nn as u16);
+        let result = value.wrapping_sub(1);
+        cpu.write_byte(nn as u16, result);
+
+        cpu.registers.set_z(result == value);
+        cpu.registers.set_n(result >> 7 == 1);
     },
     |_| {
         /* 0xC7 */
     },
-    |_| {
+    |cpu| {
         /* 0xC8 */
+        /* INY */
+        cpu.registers.y = cpu.registers.y.wrapping_add(1);
+
+        cpu.registers.set_z(cpu.registers.y == 0);
+        cpu.registers.set_n(cpu.registers.y >> 7 == 1);
     },
-    |_| {
+    |cpu| {
         /* 0xC9 */
+        /* CMP #nn */
+        let nn = cpu.fetch_byte();
+        let result = cpu.registers.acc.wrapping_sub(nn);
+
+        cpu.registers.set_c(cpu.registers.acc >= nn);
+        cpu.registers.set_z(cpu.registers.acc == nn);
+        cpu.registers.set_n(result >> 7 == 1);
     },
-    |_| {
+    |cpu| {
         /* 0xCA */
+        /* DEX */
+        cpu.registers.x = cpu.registers.x.wrapping_sub(1);
+
+        cpu.registers.set_z(cpu.registers.x == 0);
+        cpu.registers.set_n(cpu.registers.x >> 7 == 1);
     },
     |_| {
         /* 0xCB */
     },
-    |_| {
+    |cpu| {
         /* 0xCC */
+        /* CPY nnnn */
+        let low_nn = cpu.fetch_byte();
+        let high_nn = cpu.fetch_byte();
+        let address = (high_nn as u16) << 8 | low_nn as u16;
+        let value = cpu.read_byte(address);
+        let result = cpu.registers.y.wrapping_sub(value);
+
+        cpu.registers.set_c(cpu.registers.y >= value);
+        cpu.registers.set_z(cpu.registers.y == value);
+        cpu.registers.set_n(result >> 7 == 1);
     },
-    |_| {
+    |cpu| {
         /* 0xCD */
+        /* CMP nnnn */
+        let low_nn = cpu.fetch_byte();
+        let high_nn = cpu.fetch_byte();
+        let address = (high_nn as u16) << 8 | low_nn as u16;
+        let value = cpu.read_byte(address);
+        let result = cpu.registers.acc.wrapping_sub(value);
+
+        cpu.registers.set_c(cpu.registers.acc >= value);
+        cpu.registers.set_z(cpu.registers.acc == value);
+        cpu.registers.set_n(result >> 7 == 1);
     },
-    |_| {
+    |cpu| {
         /* 0xCE */
+        /* DEC nnnn */
+        let low_nn = cpu.fetch_byte();
+        let high_nn = cpu.fetch_byte();
+        let address = (high_nn as u16) << 8 | low_nn as u16;
+        let value = cpu.read_byte(address);
+        let result = value.wrapping_sub(1);
+        cpu.write_byte(address, result);
+
+        cpu.registers.set_z(result == value);
+        cpu.registers.set_n(result >> 7 == 1);
     },
     |_| {
         /* 0xCF */
