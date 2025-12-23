@@ -29,14 +29,14 @@ impl Cpu {
         OPCODES[opcode as usize](self);
     }
 
-    fn write_stack(&mut self, value: u8) {
+    fn push_stack(&mut self, value: u8) {
         let address = 0x100 + self.registers.sp as u16;
         self.registers.sp -= 1;
         
         self.mem.borrow_mut().write_byte(address, value);
     }
 
-    fn read_stack(&mut self) -> u8 {
+    fn pull_stack(&mut self) -> u8 {
         let address = 0x100 + self.registers.sp as u16;
         self.registers.sp += 1;
 
