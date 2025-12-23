@@ -1067,11 +1067,21 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |_| {
         /* 0x8F */
     },
-    |_| {
+    |cpu| {
         /* 0x90 */
+        /* BCC nn */
+        if !cpu.registers.get_c() {
+            cpu.registers.pc = cpu.registers.pc.wrapping_add_signed(cpu.fetch_byte() as i8 as i16);
+        }
     },
-    |_| {
+    |cpu| {
         /* 0x91 */
+        /* STA (nn),Y */
+        let nn = cpu.fetch_byte();
+        let low_address = cpu.read_byte(nn as u16);
+        let high_address = cpu.read_byte((nn + 1) as u16);
+        let address = ((high_address as u16) << 8 | low_address as u16) + cpu.registers.y as u16;
+        cpu.write_byte(address, cpu.registers.acc);
     },
     |_| {
         /* 0x92 */
@@ -1079,26 +1089,50 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |_| {
         /* 0x93 */
     },
-    |_| {
+    |cpu| {
         /* 0x94 */
+        /* STY nn,X */
+        let nn = cpu.fetch_byte();
+        let address = nn.wrapping_add(cpu.registers.x);
+        cpu.write_byte(address as u16, cpu.registers.y);
     },
-    |_| {
+    |cpu| {
         /* 0x95 */
+        /* STA nn,X */
+        let nn = cpu.fetch_byte();
+        let address = nn.wrapping_add(cpu.registers.x);
+        cpu.write_byte(address as u16, cpu.registers.acc);
     },
-    |_| {
+    |cpu| {
         /* 0x96 */
+        /* STX nn,X */
+        let nn = cpu.fetch_byte();
+        let address = nn.wrapping_add(cpu.registers.x);
+        cpu.write_byte(address as u16, cpu.registers.x);
     },
     |_| {
         /* 0x97 */
     },
-    |_| {
+    |cpu| {
         /* 0x98 */
+        /* TYA */
+        cpu.registers.acc = cpu.registers.y;
+
+        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_n(cpu.registers.acc >> 7 == 1);
     },
-    |_| {
+    |cpu| {
         /* 0x99 */
+        /* STA nnnn,Y */
+        let low_nn = cpu.fetch_byte();
+        let high_nn = cpu.fetch_byte();
+        let address = ((high_nn as u16) << 8 | low_nn as u16) + cpu.registers.y as u16;
+        cpu.write_byte(address, cpu.registers.acc);
     },
-    |_| {
+    |cpu| {
         /* 0x9A */
+        /* TXS */
+        cpu.registers.sp = cpu.registers.x;
     },
     |_| {
         /* 0x9B */
@@ -1106,8 +1140,13 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |_| {
         /* 0x9C */
     },
-    |_| {
+    |cpu| {
         /* 0x9D */
+        /* STA nnnn,X */
+        let low_nn = cpu.fetch_byte();
+        let high_nn = cpu.fetch_byte();
+        let address = ((high_nn as u16) << 8 | low_nn as u16) + cpu.registers.x as u16;
+        cpu.write_byte(address, cpu.registers.acc);
     },
     |_| {
         /* 0x9E */
