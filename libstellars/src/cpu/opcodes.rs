@@ -686,11 +686,33 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |_| {
         /* 0x5F */
     },
-    |_| {
+    |cpu| {
         /* 0x60 */
+        /* RTS */
+        let low_address = cpu.pull_stack();
+        let high_address = cpu.pull_stack();
+        let new_pc = (high_address as u16) << 8 | low_address as u16;
+        cpu.registers.pc = new_pc + 1;
     },
-    |_| {
+    |cpu| {
         /* 0x61 */
+        /* ADC (nn,X) */
+        let nn = cpu.fetch_byte();
+        let low_address = cpu.read_byte(nn.wrapping_add(cpu.registers.x) as u16);
+        let high_address = cpu.read_byte(nn.wrapping_add(cpu.registers.x).wrapping_add(1) as u16);
+        let address = (high_address as u16) << 8 | low_address as u16;
+        let value = cpu.read_byte(address);
+        let carry = cpu.registers.get_c() as u8;
+
+        let result = cpu.registers.acc as u16 + value as u16 + carry as u16;
+        let signed_result = (cpu.registers.acc as i8) as i16 + (value as i8) as i16 + carry as i16;
+
+        cpu.registers.acc = result as u8;
+
+        cpu.registers.set_c(result > 0xFF);
+        cpu.registers.set_v(!(-128..=127).contains(&signed_result));
+        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_n(cpu.registers.acc >> 7 == 1);
     },
     |_| {
         /* 0x62 */
@@ -701,35 +723,117 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |_| {
         /* 0x64 */
     },
-    |_| {
+    |cpu| {
         /* 0x65 */
+        /* ADC nn */
+        let nn = cpu.fetch_byte();
+        let value = cpu.read_byte(nn as u16);
+        let carry = cpu.registers.get_c() as u8;
+
+        let result = cpu.registers.acc as u16 + value as u16 + carry as u16;
+        let signed_result = (cpu.registers.acc as i8) as i16 + (value as i8) as i16 + carry as i16;
+
+        cpu.registers.acc = result as u8;
+
+        cpu.registers.set_c(result > 0xFF);
+        cpu.registers.set_v(!(-128..=127).contains(&signed_result));
+        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_n(cpu.registers.acc >> 7 == 1);
     },
-    |_| {
+    |cpu| {
         /* 0x66 */
+        /* ROR nn */
+        let nn = cpu.fetch_byte();
+        let old_value = cpu.read_byte(nn as u16);
+        let high_value = cpu.registers.get_c() as u8;
+        let result = high_value | (old_value >> 1);
+        cpu.write_byte(nn as u16, result);
+
+        cpu.registers.set_c(old_value & 0b0000_0001 == 1);
+        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_n(high_value != 0);
     },
     |_| {
         /* 0x67 */
     },
-    |_| {
+    |cpu| {
         /* 0x68 */
+        /* PLA */
+        cpu.registers.acc = cpu.pull_stack();
     },
-    |_| {
+    |cpu| {
         /* 0x69 */
+        /* ADC #nn */
+        let nn = cpu.fetch_byte();
+        let carry = cpu.registers.get_c() as u8;
+
+        let result = cpu.registers.acc as u16 + nn as u16 + carry as u16;
+        let signed_result = (cpu.registers.acc as i8) as i16 + (nn as i8) as i16 + carry as i16;
+
+        cpu.registers.acc = result as u8;
+
+        cpu.registers.set_c(result > 0xFF);
+        cpu.registers.set_v(!(-128..=127).contains(&signed_result));
+        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_n(cpu.registers.acc >> 7 == 1);
     },
-    |_| {
+    |cpu| {
         /* 0x6A */
+        /* ROR A */
+        let old_value = cpu.registers.acc;
+        let high_value = cpu.registers.get_c() as u8;
+        cpu.registers.acc = high_value | (old_value >> 1);
+
+        cpu.registers.set_c(old_value & 0b0000_0001 == 1);
+        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_n(high_value != 0);
     },
     |_| {
         /* 0x6B */
     },
-    |_| {
+    |cpu| {
         /* 0x6C */
+        /* JMP (nnnn) */
+        let low_nn = cpu.fetch_byte();
+        let high_nn = cpu.fetch_byte();
+        let address = (high_nn as u16) << 8 | low_nn as u16;
+        let low_value = cpu.read_byte(address);
+        let high_value = cpu.read_byte(address + 1);
+        cpu.registers.pc = (high_value as u16) << 8 | low_value as u16;
     },
-    |_| {
+    |cpu| {
         /* 0x6D */
+        /* ADC nnnn */
+        let low_nn = cpu.fetch_byte();
+        let high_nn = cpu.fetch_byte();
+        let address = (high_nn as u16) << 8 | low_nn as u16;
+        let value = cpu.read_byte(address);
+        let carry = cpu.registers.get_c() as u8;
+
+        let result = cpu.registers.acc as u16 + value as u16 + carry as u16;
+        let signed_result = (cpu.registers.acc as i8) as i16 + (value as i8) as i16 + carry as i16;
+
+        cpu.registers.acc = result as u8;
+
+        cpu.registers.set_c(result > 0xFF);
+        cpu.registers.set_v(!(-128..=127).contains(&signed_result));
+        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_n(cpu.registers.acc >> 7 == 1);
     },
-    |_| {
+    |cpu| {
         /* 0x6E */
+        /* ROR nnnn */
+        let low_nn = cpu.fetch_byte();
+        let high_nn = cpu.fetch_byte();
+        let address = (high_nn as u16) << 8 | low_nn as u16;
+        let old_value = cpu.read_byte(address);
+        let high_value = cpu.registers.get_c() as u8;
+        let result = high_value | (old_value >> 1);
+        cpu.write_byte(address, result);
+
+        cpu.registers.set_c(old_value & 0b0000_0001 == 1);
+        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_n(high_value != 0);
     },
     |_| {
         /* 0x6F */
