@@ -1,5 +1,6 @@
 use crate::cpu::Cpu;
 
+//todo: refactor all this
 pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     [|cpu| {
         /* 0x00 */
