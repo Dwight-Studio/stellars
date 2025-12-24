@@ -65,4 +65,9 @@ impl Stellar {
     pub fn tick(&self, cycles: u64) {
         self.tia.borrow_mut().tick(cycles);
     }
+
+    #[cfg(any(test, feature = "test-utils"))]
+    pub fn salut(&self) -> u8 {
+        7
+    }
 }
