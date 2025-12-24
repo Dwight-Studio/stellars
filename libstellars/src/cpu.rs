@@ -3,58 +3,68 @@ mod opcodes;
 use std::cell::RefCell;
 use std::rc::Rc;
 use crate::cpu::opcodes::OPCODES;
-use crate::memory::Memory;
 use crate::registers::Registers;
+use crate::Stellar;
 
 pub struct Cpu {
-    mem: Rc<RefCell<Memory>>,
+    pub(crate) bus: Option<Rc<RefCell<Stellar>>>,
     
     registers: Registers,
-    cycles: u64
+    cycles: u64,
 }
 
 impl Cpu {
-    pub fn new(mem: Rc<RefCell<Memory>>) -> Self {
+    pub fn new(bus: Option<Rc<RefCell<Stellar>>>) -> Self {
         Cpu {
-            mem,
+            bus,
             
             registers: Registers::new(),
-            cycles: 0
+            cycles: 0,
         }
     }
 
     pub fn execute(&mut self) {
+        let old_cycles = self.cycles;
         let opcode = self.fetch_byte();
 
         OPCODES[opcode as usize](self);
+        
+        self.bus.as_ref().unwrap().borrow().tick(self.cycles - old_cycles);
     }
 
     fn push_stack(&mut self, value: u8) {
         let address = 0x100 + self.registers.sp as u16;
         self.registers.sp -= 1;
+        self.cycles += 1;
         
-        self.mem.borrow_mut().write_byte(address, value);
+        self.bus.as_ref().unwrap().borrow().write_byte(address, value);
     }
 
     fn pull_stack(&mut self) -> u8 {
         let address = 0x100 + self.registers.sp as u16;
         self.registers.sp += 1;
+        self.cycles += 1;
 
-        self.mem.borrow().read_byte(address)
+        self.bus.as_ref().unwrap().borrow().read_byte(address)
     }
 
     fn fetch_byte(&mut self) -> u8 {
-        let data = self.mem.borrow().read_byte(self.registers.pc);
+        let data = self.bus.as_ref().unwrap().borrow().read_byte(self.registers.pc);
         self.registers.pc += 1;
+        self.cycles += 1;
 
         data
     }
 
-    fn read_byte(&self, address: u16) -> u8 {
-        self.mem.borrow().read_byte(address)
+    fn read_byte(&mut self, address: u16) -> u8 {
+        self.cycles += 1;
+
+        self.bus.as_ref().unwrap().borrow().read_byte(address)
     }
 
     fn write_byte(&mut self, address: u16, value: u8) {
-        self.mem.borrow_mut().write_byte(address, value);
+        self.cycles += 1;
+
+        self.bus.as_ref().unwrap().borrow_mut().write_byte(address, value);
     }
 }

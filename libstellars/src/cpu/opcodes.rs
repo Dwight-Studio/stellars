@@ -1,6 +1,6 @@
 use crate::cpu::Cpu;
 
-//todo: refactor all this
+//todo: refactor all this & verify cpu cycles
 pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     [|cpu| {
         /* 0x00 */
@@ -22,6 +22,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
 
         cpu.registers.set_z(cpu.registers.acc == 0);
         cpu.registers.set_n(cpu.registers.acc >> 7 == 1);
+        cpu.cycles += 1;
     },
     |_| {
         /* 0x02 */
