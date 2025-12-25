@@ -12,6 +12,13 @@ mod tia;
 pub const SCREEN_WIDTH: u8 = 160;
 pub const SCREEN_HEIGHT: u8 = 192;
 
+#[derive(Copy, Clone)]
+pub struct Color {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+}
+
 pub struct Stellar {
     pub(crate) memory: Rc<RefCell<Memory>>,
     tia: Rc<RefCell<Tia>>,
@@ -32,14 +39,22 @@ impl Stellar {
         bus
     }
 
-    pub fn read_byte(&self, address: u16) -> u8 {
+    pub fn get_picture_buffer(&self) -> Option<[Color; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize]> {
+        if self.tia.borrow().frame_ready {
+            Some(self.tia.borrow().pic_buffer)
+        } else {
+            None
+        }
+    }
+
+    pub(crate) fn read_byte(&self, address: u16) -> u8 {
         let data: u8;
 
         if address <= 0x0D {
             todo!("Input and collision latches")
-        } else if address >= 0x0080 && address <= 0x00FF {
+        } else if (0x0080..=0x00FF).contains(&address) {
             data = self.memory.borrow().ram[(address - 0x80) as usize]
-        } else if address >= 0x0100 && address <= 0x01FF {
+        } else if (0x0100..=0x01FF).contains(&address) {
             data = self.memory.borrow().stack[(address - 0x100) as usize]
         } else if address >= 0xF000 {
             data = self.memory.borrow().game_rom[(address - 0xF000) as usize]
@@ -50,19 +65,19 @@ impl Stellar {
         data
     }
 
-    pub fn write_byte(&self, address: u16, value: u8) {
+    pub(crate) fn write_byte(&self, address: u16, value: u8) {
         if address <= 0x2C {
             self.tia.borrow_mut().set_write_function(address as u8, value);
-        } else if address >= 0x0080 && address <= 0x00FF {
+        } else if (0x0080..=0x00FF).contains(&address) {
             self.memory.borrow_mut().ram[(address - 0x80) as usize] = value;
-        } else if address >= 0x0100 && address <= 0x01FF {
+        } else if (0x0100..=0x01FF).contains(&address) {
             self.memory.borrow_mut().stack[(address - 0x100) as usize] = value;
         } else {
             todo!("Logging: warn: Writing at unknown address")
         }
     }
 
-    pub fn tick(&self, cycles: u64) {
+    pub(crate) fn tick(&self, cycles: u64) {
         self.tia.borrow_mut().tick(cycles);
     }
 
