@@ -48,6 +48,7 @@ impl Stellar {
         }
     }
 
+    #[cfg(not(any(test, feature = "test-utils")))]
     pub(crate) fn read_byte(&self, address: u16) -> u8 {
         let data: u8;
 
@@ -66,6 +67,12 @@ impl Stellar {
         data
     }
 
+    #[cfg(any(test, feature = "test-utils"))]
+    pub(crate) fn read_byte(&self, address: u16) -> u8 {
+        self.memory.borrow().ram[address as usize]
+    }
+
+    #[cfg(not(any(test, feature = "test-utils")))]
     pub(crate) fn write_byte(&self, address: u16, value: u8) {
         if address <= 0x2C {
             self.tia.borrow_mut().set_write_function(address as u8, value);
@@ -76,6 +83,11 @@ impl Stellar {
         } else {
             todo!("Logging: warn: Writing at unknown address")
         }
+    }
+
+    #[cfg(any(test, feature = "test-utils"))]
+    pub(crate) fn write_byte(&self, address: u16, value: u8) {
+        self.memory.borrow_mut().ram[address as usize] = value;
     }
 
     pub(crate) fn tick(&self, cycles: u64) {
@@ -109,8 +121,6 @@ impl Stellar {
 
     #[cfg(any(test, feature = "test-utils"))]
     pub fn run_opcode(&self) {
-        self.cpu.borrow().print_registers();
         self.cpu.borrow_mut().execute();
-        self.cpu.borrow().print_registers();
     }
 }

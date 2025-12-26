@@ -92,10 +92,4 @@ impl Cpu {
         
         flag
     }
-
-    #[cfg(any(test, feature = "test-utils"))]
-    pub fn print_registers(&self) {
-        println!("PC : {}", self.registers.pc);
-        println!("ACC : {}", self.registers.acc);
-    }
 }
