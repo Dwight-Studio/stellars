@@ -1,5 +1,4 @@
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::{Arc, RwLock};
 use crate::{Color, Stellar, SCREEN_HEIGHT, SCREEN_WIDTH};
 
 static NTSC_COLORS: [Color; 0x100] = {[
@@ -342,7 +341,7 @@ pub enum ReadFunctions {
 }
 
 pub struct Tia {
-    pub(crate) bus: Option<Rc<RefCell<Stellar>>>,
+    pub(crate) bus: Option<Arc<RwLock<Stellar>>>,
     pub(crate) frame_ready: bool,
     pub(crate) pic_buffer: [Color; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize],
 
@@ -354,9 +353,9 @@ pub struct Tia {
 }
 
 impl Tia {
-    pub fn new(bus: Option<Rc<RefCell<Stellar>>>) -> Tia {
+    pub fn new() -> Tia {
         Self {
-            bus,
+            bus: None,
             frame_ready: false,
 
             write_functions: [0x00; 0x2D],

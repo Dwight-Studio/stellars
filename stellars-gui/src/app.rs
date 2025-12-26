@@ -1,21 +1,26 @@
 use crate::app::stellars_render::StellarsRender;
 use std::process::exit;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
 use winit::event::{WindowEvent};
 use winit::event_loop::ActiveEventLoop;
 use winit::window::{Window, WindowId};
+use libstellars::Stellar;
 
 mod stellars_render;
 
 pub struct App {
+    libstellars: Arc<RwLock<Stellar>>,
     stellars_render: Option<StellarsRender>,
 }
 
 impl App {
     pub fn new() -> Self {
-        Self { stellars_render: None }
+        Self {
+            libstellars: Stellar::new(),
+            stellars_render: None
+        }
     }
 }
 
@@ -28,7 +33,8 @@ impl ApplicationHandler for App {
                 480.0
             ));
         let render_window = Arc::new(event_loop.create_window(stellars_render_attrs).unwrap());
-        let stellars_render = StellarsRender::new(render_window.clone());
+        let mut stellars_render = StellarsRender::new(render_window.clone(), self.libstellars.clone());
+        stellars_render.run();
 
         self.stellars_render = Some(stellars_render);
     }

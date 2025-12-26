@@ -12,11 +12,11 @@ fn opcode_0x01() {
         let final_state = test.get("final").unwrap().as_object().unwrap();
 
         let stellar = Stellar::new();
-        stellar.borrow().set_initial_state(initial_state);
+        stellar.read().unwrap().set_initial_state(initial_state);
 
-        stellar.borrow().run_opcode();
+        stellar.read().unwrap().run_opcode();
 
-        let equal = stellar.borrow().check_final_state(final_state);
+        let equal = stellar.read().unwrap().check_final_state(final_state);
 
         assert!(equal);
     }

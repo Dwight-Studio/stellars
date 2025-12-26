@@ -1,23 +1,22 @@
 mod opcodes;
 
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::{Arc, RwLock};
 use serde_json::{Map, Value};
 use crate::cpu::opcodes::OPCODES;
 use crate::registers::Registers;
 use crate::Stellar;
 
 pub struct Cpu {
-    pub(crate) bus: Option<Rc<RefCell<Stellar>>>,
+    pub(crate) bus: Option<Arc<RwLock<Stellar>>>,
     
     registers: Registers,
     cycles: u64,
 }
 
 impl Cpu {
-    pub fn new(bus: Option<Rc<RefCell<Stellar>>>) -> Self {
+    pub fn new() -> Self {
         Cpu {
-            bus,
+            bus: None,
             
             registers: Registers::new(),
             cycles: 0,
@@ -30,7 +29,7 @@ impl Cpu {
 
         OPCODES[opcode as usize](self);
         
-        self.bus.as_ref().unwrap().borrow().tick(self.cycles - old_cycles);
+        self.bus.as_ref().unwrap().read().unwrap().tick(self.cycles - old_cycles);
     }
 
     fn push_stack(&mut self, value: u8) {
@@ -38,7 +37,7 @@ impl Cpu {
         self.registers.sp -= 1;
         self.cycles += 1;
         
-        self.bus.as_ref().unwrap().borrow().write_byte(address, value);
+        self.bus.as_ref().unwrap().read().unwrap().write_byte(address, value);
     }
 
     fn pull_stack(&mut self) -> u8 {
@@ -46,11 +45,11 @@ impl Cpu {
         self.registers.sp += 1;
         self.cycles += 1;
 
-        self.bus.as_ref().unwrap().borrow().read_byte(address)
+        self.bus.as_ref().unwrap().read().unwrap().read_byte(address)
     }
 
     fn fetch_byte(&mut self) -> u8 {
-        let data = self.bus.as_ref().unwrap().borrow().read_byte(self.registers.pc);
+        let data = self.bus.as_ref().unwrap().read().unwrap().read_byte(self.registers.pc);
         self.registers.pc += 1;
         self.cycles += 1;
 
@@ -60,13 +59,13 @@ impl Cpu {
     fn read_byte(&mut self, address: u16) -> u8 {
         self.cycles += 1;
 
-        self.bus.as_ref().unwrap().borrow().read_byte(address)
+        self.bus.as_ref().unwrap().read().unwrap().read_byte(address)
     }
 
     fn write_byte(&mut self, address: u16, value: u8) {
         self.cycles += 1;
 
-        self.bus.as_ref().unwrap().borrow_mut().write_byte(address, value);
+        self.bus.as_ref().unwrap().write().unwrap().write_byte(address, value);
     }
 
     #[cfg(any(test, feature = "test-utils"))]

@@ -1,5 +1,6 @@
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::fs;
+use std::path::PathBuf;
+use std::sync::{Arc, RwLock};
 use serde_json::{Map, Value};
 use crate::memory::Memory;
 use crate::cpu::Cpu;
@@ -21,30 +22,41 @@ pub struct Color {
 }
 
 pub struct Stellar {
-    pub(crate) memory: Rc<RefCell<Memory>>,
-    tia: Rc<RefCell<Tia>>,
-    cpu: Rc<RefCell<Cpu>>,
+    pub(crate) memory: Arc<RwLock<Memory>>,
+    tia: Arc<RwLock<Tia>>,
+    cpu: Arc<RwLock<Cpu>>,
 }
 
 impl Stellar {
-    pub fn new() -> Rc<RefCell<Self>> {
-        let bus = Rc::new(RefCell::new(Self {
-            memory: Rc::new(RefCell::new(Memory::new())),
-            tia: Rc::new(RefCell::new(Tia::new(None))),
-            cpu: Rc::new(RefCell::new(Cpu::new(None))),
+    pub fn new() -> Arc<RwLock<Self>> {
+        let bus = Arc::new(RwLock::new(Self {
+            memory: Arc::new(RwLock::new(Memory::new())),
+            tia: Arc::new(RwLock::new(Tia::new())),
+            cpu: Arc::new(RwLock::new(Cpu::new())),
         }));
 
-        bus.borrow().tia.borrow_mut().bus = Some(bus.clone());
-        bus.borrow().cpu.borrow_mut().bus = Some(bus.clone());
+        bus.read().unwrap().tia.write().unwrap().bus = Some(bus.clone());
+        bus.read().unwrap().cpu.write().unwrap().bus = Some(bus.clone());
 
         bus
     }
 
+    pub fn execute(&self) {
+        self.cpu.write().unwrap().execute();
+    }
+
     pub fn get_picture_buffer(&self) -> Option<[Color; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize]> {
-        if self.tia.borrow().frame_ready {
-            Some(self.tia.borrow().pic_buffer)
+        if self.tia.read().unwrap().frame_ready {
+            Some(self.tia.read().unwrap().pic_buffer)
         } else {
             None
+        }
+    }
+
+    pub fn load_rom(&self, path: PathBuf) {
+        match fs::read(path.clone()) {
+            Ok(data) => {self.memory.write().unwrap().game_rom = data;}
+            Err(err) => {eprintln!("Cannot open ROM {}: {err}", path.display())}
         }
     }
 
@@ -53,13 +65,14 @@ impl Stellar {
         let data: u8;
 
         if address <= 0x0D {
-            todo!("Input and collision latches")
+            /*todo!("Input and collision latches")*/
+            data = 0x00;
         } else if (0x0080..=0x00FF).contains(&address) {
-            data = self.memory.borrow().ram[(address - 0x80) as usize]
+            data = self.memory.read().unwrap().ram[(address - 0x80) as usize]
         } else if (0x0100..=0x01FF).contains(&address) {
-            data = self.memory.borrow().stack[(address - 0x100) as usize]
+            data = self.memory.read().unwrap().stack[(address - 0x100) as usize]
         } else if address >= 0xF000 {
-            data = self.memory.borrow().game_rom[(address - 0xF000) as usize]
+            data = self.memory.read().unwrap().game_rom[(address - 0xF000) as usize]
         } else {
             todo!("Logging: warn: Reading at unknown address")
         }
@@ -69,17 +82,17 @@ impl Stellar {
 
     #[cfg(any(test, feature = "test-utils"))]
     pub(crate) fn read_byte(&self, address: u16) -> u8 {
-        self.memory.borrow().ram[address as usize]
+        self.memory.read().unwrap().ram[address as usize]
     }
 
     #[cfg(not(any(test, feature = "test-utils")))]
     pub(crate) fn write_byte(&self, address: u16, value: u8) {
         if address <= 0x2C {
-            self.tia.borrow_mut().set_write_function(address as u8, value);
+            self.tia.write().unwrap().set_write_function(address as u8, value);
         } else if (0x0080..=0x00FF).contains(&address) {
-            self.memory.borrow_mut().ram[(address - 0x80) as usize] = value;
+            self.memory.write().unwrap().ram[(address - 0x80) as usize] = value;
         } else if (0x0100..=0x01FF).contains(&address) {
-            self.memory.borrow_mut().stack[(address - 0x100) as usize] = value;
+            self.memory.write().unwrap().stack[(address - 0x100) as usize] = value;
         } else {
             todo!("Logging: warn: Writing at unknown address")
         }
@@ -87,16 +100,16 @@ impl Stellar {
 
     #[cfg(any(test, feature = "test-utils"))]
     pub(crate) fn write_byte(&self, address: u16, value: u8) {
-        self.memory.borrow_mut().ram[address as usize] = value;
+        self.memory.write().unwrap().ram[address as usize] = value;
     }
 
     pub(crate) fn tick(&self, cycles: u64) {
-        self.tia.borrow_mut().tick(cycles);
+        self.tia.write().unwrap().tick(cycles);
     }
 
     #[cfg(any(test, feature = "test-utils"))]
     pub fn set_initial_state(&self, state: &Map<String, Value>) {
-        self.cpu.borrow_mut().set_registers(state);
+        self.cpu.write().unwrap().set_registers(state);
 
         let ram_values = state.get("ram").unwrap().as_array().unwrap();
         for value in ram_values {
@@ -108,7 +121,7 @@ impl Stellar {
     #[cfg(any(test, feature = "test-utils"))]
     pub fn check_final_state(&self, state: &Map<String, Value>) -> bool {
         let mut flag = true;
-        flag &= self.cpu.borrow().check_registers(state);
+        flag &= self.cpu.read().unwrap().check_registers(state);
 
         let ram_values = state.get("ram").unwrap().as_array().unwrap();
         for value in ram_values {
@@ -121,6 +134,6 @@ impl Stellar {
 
     #[cfg(any(test, feature = "test-utils"))]
     pub fn run_opcode(&self) {
-        self.cpu.borrow_mut().execute();
+        self.cpu.write().unwrap().execute();
     }
 }
