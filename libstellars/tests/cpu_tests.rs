@@ -4,18 +4,20 @@ use libstellars::Stellar;
 
 #[test]
 fn opcode_0x01() {
-    let file = File::open("resources/cpu/01.json").expect("Expected 01.json");
+    let file = File::open("resources/test.json").expect("Expected test.json");
     let json: serde_json::Value = from_reader(file).expect("File should be a json");
 
     for test in json.as_array().unwrap() {
-        let opcode = test.get("name").unwrap();
-        let initial_state = test.get("initial").unwrap();
+        let initial_state = test.get("initial").unwrap().as_object().unwrap();
+        let final_state = test.get("final").unwrap().as_object().unwrap();
 
         let stellar = Stellar::new();
-        let value = stellar.borrow().salut();
+        stellar.borrow().set_initial_state(initial_state);
 
-        println!("{}", opcode);
+        stellar.borrow().run_opcode();
+
+        let equal = stellar.borrow().check_final_state(final_state);
+
+        assert!(equal);
     }
-
-    assert_eq!(7, 7);
 }

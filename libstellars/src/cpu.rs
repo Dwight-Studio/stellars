@@ -2,6 +2,7 @@ mod opcodes;
 
 use std::cell::RefCell;
 use std::rc::Rc;
+use serde_json::{Map, Value};
 use crate::cpu::opcodes::OPCODES;
 use crate::registers::Registers;
 use crate::Stellar;
@@ -66,5 +67,35 @@ impl Cpu {
         self.cycles += 1;
 
         self.bus.as_ref().unwrap().borrow_mut().write_byte(address, value);
+    }
+
+    #[cfg(any(test, feature = "test-utils"))]
+    pub fn set_registers(&mut self, state: &Map<String, Value>) {
+        self.registers.pc = state.get("pc").unwrap().as_u64().unwrap() as u16;
+        self.registers.sp = state.get("s").unwrap().as_u64().unwrap() as u8;
+        self.registers.acc = state.get("a").unwrap().as_u64().unwrap() as u8;
+        self.registers.x = state.get("x").unwrap().as_u64().unwrap() as u8;
+        self.registers.y = state.get("y").unwrap().as_u64().unwrap() as u8;
+        self.registers.p = state.get("p").unwrap().as_u64().unwrap() as u8;
+    }
+
+    #[cfg(any(test, feature = "test-utils"))]
+    pub fn check_registers(&self, state: &Map<String, Value>) -> bool {
+        let mut flag = true;
+        
+        flag &= self.registers.pc == state.get("pc").unwrap().as_u64().unwrap() as u16;
+        flag &= self.registers.sp == state.get("s").unwrap().as_u64().unwrap() as u8;
+        flag &= self.registers.acc == state.get("a").unwrap().as_u64().unwrap() as u8;
+        flag &= self.registers.x == state.get("x").unwrap().as_u64().unwrap() as u8;
+        flag &= self.registers.y == state.get("y").unwrap().as_u64().unwrap() as u8;
+        flag &= self.registers.p == state.get("p").unwrap().as_u64().unwrap() as u8;
+        
+        flag
+    }
+
+    #[cfg(any(test, feature = "test-utils"))]
+    pub fn print_registers(&self) {
+        println!("PC : {}", self.registers.pc);
+        println!("ACC : {}", self.registers.acc);
     }
 }

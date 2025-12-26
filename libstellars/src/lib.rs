@@ -1,5 +1,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
+use serde_json::{Map, Value};
 use crate::memory::Memory;
 use crate::cpu::Cpu;
 use crate::tia::Tia;
@@ -82,7 +83,34 @@ impl Stellar {
     }
 
     #[cfg(any(test, feature = "test-utils"))]
-    pub fn salut(&self) -> u8 {
-        7
+    pub fn set_initial_state(&self, state: &Map<String, Value>) {
+        self.cpu.borrow_mut().set_registers(state);
+
+        let ram_values = state.get("ram").unwrap().as_array().unwrap();
+        for value in ram_values {
+            let value = value.as_array().unwrap();
+            self.write_byte(value.first().unwrap().as_u64().unwrap() as u16, value.get(1).unwrap().as_u64().unwrap() as u8);
+        }
+    }
+
+    #[cfg(any(test, feature = "test-utils"))]
+    pub fn check_final_state(&self, state: &Map<String, Value>) -> bool {
+        let mut flag = true;
+        flag &= self.cpu.borrow().check_registers(state);
+
+        let ram_values = state.get("ram").unwrap().as_array().unwrap();
+        for value in ram_values {
+            let value = value.as_array().unwrap();
+            flag &= self.read_byte(value.first().unwrap().as_u64().unwrap() as u16) == value.get(1).unwrap().as_u64().unwrap() as u8;
+        }
+
+        flag
+    }
+
+    #[cfg(any(test, feature = "test-utils"))]
+    pub fn run_opcode(&self) {
+        self.cpu.borrow().print_registers();
+        self.cpu.borrow_mut().execute();
+        self.cpu.borrow().print_registers();
     }
 }
