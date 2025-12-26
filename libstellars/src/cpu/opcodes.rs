@@ -5,11 +5,14 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     [|cpu| {
         /* 0x00 */
         /* BRK */
-        cpu.registers.set_b(true);
+        cpu.push_stack(((cpu.registers.pc + 1) >> 8) as u8);
         cpu.push_stack((cpu.registers.pc + 1) as u8);
-        cpu.push_stack(cpu.registers.p);
+        cpu.push_stack(cpu.registers.p | 0b0001_0000);
         cpu.registers.set_i(true);
-        cpu.registers.pc = cpu.read_byte(0xFFFE) as u16;
+        let low_value = cpu.read_byte(0xFFFE);
+        let high_value = cpu.read_byte(0xFFFE + 1);
+        let value = (high_value as u16) << 8 | low_value as u16;
+        cpu.registers.pc = value;
     },
     |cpu| {
         /* 0x01 */

@@ -126,17 +126,26 @@ impl Stellar {
     }
 
     #[cfg(feature = "test-utils")]
-    pub fn check_final_state(&self, state: &Map<String, Value>) -> bool {
-        let mut flag = true;
-        flag &= self.cpu.read().unwrap().check_registers(state);
+    pub fn check_final_state(&self, state: &Map<String, Value>) -> (bool, Vec<String>) {
+        let mut differences = Vec::new();
+        let mut flag;
+
+        flag = self.cpu.read().unwrap().check_registers(state, &mut differences);
 
         let ram_values = state.get("ram").unwrap().as_array().unwrap();
         for value in ram_values {
             let value = value.as_array().unwrap();
-            flag &= self.read_byte(value.first().unwrap().as_u64().unwrap() as u16) == value.get(1).unwrap().as_u64().unwrap() as u8;
+            let address = value.first().unwrap().as_u64().unwrap() as u16;
+            let expected = value.get(1).unwrap().as_u64().unwrap() as u8;
+            let actual = self.read_byte(address);
+
+            if actual != expected {
+                differences.push(format!("RAM[0x{:04X}]: expected 0x{:02X}, got 0x{:02X}", address, expected, actual));
+                flag = false;
+            }
         }
 
-        flag
+        (flag, differences)
     }
 
     #[cfg(feature = "test-utils")]
