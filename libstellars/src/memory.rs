@@ -1,16 +1,16 @@
-#[cfg(not(any(test, feature = "test-utils")))]
+#[cfg(not(feature = "test-utils"))]
 pub struct Memory {
     pub(crate) ram: [u8; 0x80],
     pub(crate) stack: [u8; 0x100],
     pub(crate) game_rom: Vec<u8>,
 }
 
-#[cfg(any(test, feature = "test-utils"))]
+#[cfg(feature = "test-utils")]
 pub struct Memory {
     pub(crate) ram: [u8; 0x10000], // 64 KiB pour les tests
 }
 
-#[cfg(not(any(test, feature = "test-utils")))]
+#[cfg(not(feature = "test-utils"))]
 impl Memory {
     pub fn new() -> Self {
         Self {
@@ -21,7 +21,7 @@ impl Memory {
     }
 }
 
-#[cfg(any(test, feature = "test-utils"))]
+#[cfg(feature = "test-utils")]
 impl Memory {
     pub fn new() -> Self {
         Self {

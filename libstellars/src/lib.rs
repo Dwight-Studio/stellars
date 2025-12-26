@@ -60,7 +60,7 @@ impl Stellar {
         }
     }
 
-    #[cfg(not(any(test, feature = "test-utils")))]
+    #[cfg(not(feature = "test-utils"))]
     pub(crate) fn read_byte(&self, address: u16) -> u8 {
         let data: u8;
 
@@ -80,12 +80,12 @@ impl Stellar {
         data
     }
 
-    #[cfg(any(test, feature = "test-utils"))]
+    #[cfg(feature = "test-utils")]
     pub(crate) fn read_byte(&self, address: u16) -> u8 {
         self.memory.read().unwrap().ram[address as usize]
     }
 
-    #[cfg(not(any(test, feature = "test-utils")))]
+    #[cfg(not(feature = "test-utils"))]
     pub(crate) fn write_byte(&self, address: u16, value: u8) {
         if address <= 0x2C {
             self.tia.write().unwrap().set_write_function(address as u8, value);
@@ -98,7 +98,7 @@ impl Stellar {
         }
     }
 
-    #[cfg(any(test, feature = "test-utils"))]
+    #[cfg(feature = "test-utils")]
     pub(crate) fn write_byte(&self, address: u16, value: u8) {
         self.memory.write().unwrap().ram[address as usize] = value;
     }
@@ -107,7 +107,7 @@ impl Stellar {
         self.tia.write().unwrap().tick(cycles);
     }
 
-    #[cfg(any(test, feature = "test-utils"))]
+    #[cfg(feature = "test-utils")]
     pub fn set_initial_state(&self, state: &Map<String, Value>) {
         self.cpu.write().unwrap().set_registers(state);
 
@@ -118,7 +118,7 @@ impl Stellar {
         }
     }
 
-    #[cfg(any(test, feature = "test-utils"))]
+    #[cfg(feature = "test-utils")]
     pub fn check_final_state(&self, state: &Map<String, Value>) -> bool {
         let mut flag = true;
         flag &= self.cpu.read().unwrap().check_registers(state);
@@ -132,7 +132,7 @@ impl Stellar {
         flag
     }
 
-    #[cfg(any(test, feature = "test-utils"))]
+    #[cfg(feature = "test-utils")]
     pub fn run_opcode(&self) {
         self.cpu.write().unwrap().execute();
     }

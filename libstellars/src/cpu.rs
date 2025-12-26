@@ -68,7 +68,7 @@ impl Cpu {
         self.bus.as_ref().unwrap().write().unwrap().write_byte(address, value);
     }
 
-    #[cfg(any(test, feature = "test-utils"))]
+    #[cfg(feature = "test-utils")]
     pub fn set_registers(&mut self, state: &Map<String, Value>) {
         self.registers.pc = state.get("pc").unwrap().as_u64().unwrap() as u16;
         self.registers.sp = state.get("s").unwrap().as_u64().unwrap() as u8;
@@ -78,7 +78,7 @@ impl Cpu {
         self.registers.p = state.get("p").unwrap().as_u64().unwrap() as u8;
     }
 
-    #[cfg(any(test, feature = "test-utils"))]
+    #[cfg(feature = "test-utils")]
     pub fn check_registers(&self, state: &Map<String, Value>) -> bool {
         let mut flag = true;
         
