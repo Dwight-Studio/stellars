@@ -28,8 +28,12 @@ impl Cpu {
         let opcode = self.fetch_byte();
 
         OPCODES[opcode as usize](self);
-        
+
         self.bus.as_ref().unwrap().read().unwrap().tick(self.cycles - old_cycles);
+    }
+
+    pub(crate) fn init_pc(&mut self, pc: u16) {
+        self.registers.pc = pc;
     }
 
     fn push_stack(&mut self, value: u8) {
@@ -65,7 +69,9 @@ impl Cpu {
     fn write_byte(&mut self, address: u16, value: u8) {
         self.cycles += 1;
 
-        self.bus.as_ref().unwrap().write().unwrap().write_byte(address, value);
+        if let Some(bus) = self.bus.as_ref() && let Ok(bus_w) = bus.read() {
+            bus_w.write_byte(address, value);
+        }
     }
 
     #[cfg(feature = "test-utils")]

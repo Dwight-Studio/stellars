@@ -3,6 +3,7 @@ use std::fs::File;
 use libstellars::Stellar;
 
 #[test]
+#[cfg(feature = "test-utils")]
 fn opcode_0x01() {
     let file = File::open("resources/cpu/01.json").expect("Expected 01.json");
     let json: serde_json::Value = from_reader(file).expect("File should be a json");

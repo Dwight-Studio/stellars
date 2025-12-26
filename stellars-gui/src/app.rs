@@ -4,27 +4,33 @@ use std::sync::{Arc, RwLock};
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
 use winit::event::{WindowEvent};
-use winit::event_loop::ActiveEventLoop;
+use winit::event_loop::{ActiveEventLoop, EventLoopProxy};
 use winit::window::{Window, WindowId};
 use libstellars::Stellar;
 
 mod stellars_render;
 
+pub enum StellarsEvent {
+    FrameReady
+}
+
 pub struct App {
     libstellars: Arc<RwLock<Stellar>>,
     stellars_render: Option<StellarsRender>,
+    event_loop_proxy: EventLoopProxy<StellarsEvent>,
 }
 
 impl App {
-    pub fn new() -> Self {
+    pub fn new(event_loop_proxy: EventLoopProxy<StellarsEvent>) -> Self {
         Self {
             libstellars: Stellar::new(),
-            stellars_render: None
+            stellars_render: None,
+            event_loop_proxy,
         }
     }
 }
 
-impl ApplicationHandler for App {
+impl ApplicationHandler<StellarsEvent> for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         let stellars_render_attrs = Window::default_attributes()
             .with_title("Stellars Render")
@@ -34,7 +40,7 @@ impl ApplicationHandler for App {
             ));
         let render_window = Arc::new(event_loop.create_window(stellars_render_attrs).unwrap());
         let mut stellars_render = StellarsRender::new(render_window.clone(), self.libstellars.clone());
-        stellars_render.run();
+        stellars_render.run(self.event_loop_proxy.clone());
 
         self.stellars_render = Some(stellars_render);
     }
@@ -45,21 +51,20 @@ impl ApplicationHandler for App {
             Some(render) => render
         };
 
-        match event {
-            WindowEvent::CloseRequested => {
-                if window_id == stellars_render.window.id() {
-                    self.stellars_render = None;
+        if event == WindowEvent::CloseRequested && window_id == stellars_render.window.id() {
+            self.stellars_render = None;
 
-                    event_loop.exit();
-                    exit(0);
-                }
-            }
-            WindowEvent::RedrawRequested => {
-                if window_id == stellars_render.window.id() {
-                    stellars_render.render();
-                }
-            }
-            _ => {}
+            event_loop.exit();
+            exit(0);
         }
+    }
+
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: StellarsEvent) {
+        let stellars_render = match self.stellars_render.as_mut() {
+            None => {return}
+            Some(render) => render
+        };
+
+        match event { StellarsEvent::FrameReady => {stellars_render.render()} }
     }
 }

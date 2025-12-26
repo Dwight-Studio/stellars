@@ -42,20 +42,27 @@ impl Stellar {
     }
 
     pub fn execute(&self) {
-        self.cpu.write().unwrap().execute();
+        if let Ok(mut cpu) = self.cpu.write() {
+            cpu.execute();
+        }
     }
 
     pub fn get_picture_buffer(&self) -> Option<[Color; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize]> {
         if self.tia.read().unwrap().frame_ready {
+            self.tia.write().unwrap().frame_ready = false;
             Some(self.tia.read().unwrap().pic_buffer)
         } else {
             None
         }
     }
 
+    #[cfg(not(feature = "test-utils"))]
     pub fn load_rom(&self, path: PathBuf) {
         match fs::read(path.clone()) {
-            Ok(data) => {self.memory.write().unwrap().game_rom = data;}
+            Ok(data) => {
+                self.memory.write().unwrap().game_rom = data;
+                self.cpu.write().unwrap().init_pc(self.read_byte(0xFFFC) as u16 | ((self.read_byte(0xFFFD) as u16) << 8));
+            }
             Err(err) => {eprintln!("Cannot open ROM {}: {err}", path.display())}
         }
     }

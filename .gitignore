@@ -4,3 +4,4 @@ Cargo.lock
 
 # Resources
 libstellars/resources/cpu
+stellars-gui/resources
