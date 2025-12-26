@@ -54,7 +54,7 @@ impl Cpu {
 
     fn fetch_byte(&mut self) -> u8 {
         let data = self.bus.as_ref().unwrap().read().unwrap().read_byte(self.registers.pc);
-        self.registers.pc += 1;
+        self.registers.pc = self.registers.pc.wrapping_add(1);
         self.cycles += 1;
 
         data

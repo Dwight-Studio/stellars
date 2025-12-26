@@ -55,7 +55,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         cpu.write_byte(nn as u16, result);
 
         cpu.registers.set_c(old_value >> 7 == 1);
-        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_z(result == 0);
         cpu.registers.set_n(result >> 7 == 1);
     },
     |_| {
@@ -64,7 +64,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x08 */
         /* PHP */
-        cpu.push_stack(cpu.registers.p);
+        cpu.push_stack(cpu.registers.p | 0b0001_0000);
     },
     |cpu| {
         /* 0x09 */
@@ -113,7 +113,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         cpu.write_byte(address, result);
 
         cpu.registers.set_c(old_value >> 7 == 1);
-        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_z(result == 0);
         cpu.registers.set_n(result >> 7 == 1);
     },
     |_| {
@@ -122,8 +122,9 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x10 */
         /* BPL nnn */
+        let nn = cpu.fetch_byte() as i8 as i16;
         if !cpu.registers.get_n() {
-            cpu.registers.pc = cpu.registers.pc.wrapping_add_signed(cpu.fetch_byte() as i8 as i16);
+            cpu.registers.pc = cpu.registers.pc.wrapping_add_signed(nn);
         }
     },
     |cpu| {
@@ -131,8 +132,8 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         /* ORA (nn),Y */
         let nn = cpu.fetch_byte();
         let low_address = cpu.read_byte(nn as u16);
-        let high_address = cpu.read_byte((nn + 1) as u16);
-        let address = ((high_address as u16) << 8 | low_address as u16) + cpu.registers.y as u16;
+        let high_address = cpu.read_byte(nn.wrapping_add(1) as u16);
+        let address = ((high_address as u16) << 8 | low_address as u16).wrapping_add(cpu.registers.y as u16);
         cpu.registers.acc |= cpu.read_byte(address);
 
         cpu.registers.set_z(cpu.registers.acc == 0);
@@ -167,7 +168,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         cpu.write_byte(address as u16, result);
 
         cpu.registers.set_c(old_value >> 7 == 1);
-        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_z(result == 0);
         cpu.registers.set_n(result >> 7 == 1);
     },
     |_| {
@@ -183,7 +184,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         /* ORA nnnn,Y */
         let low_nn = cpu.fetch_byte();
         let high_nn = cpu.fetch_byte();
-        let address = ((high_nn as u16) << 8 | low_nn as u16) + cpu.registers.y as u16;
+        let address = ((high_nn as u16) << 8 | low_nn as u16).wrapping_add(cpu.registers.y as u16);
         cpu.registers.acc |= cpu.read_byte(address);
 
         cpu.registers.set_z(cpu.registers.acc == 0);
@@ -203,7 +204,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         /* ORA nnnn,X */
         let low_nn = cpu.fetch_byte();
         let high_nn = cpu.fetch_byte();
-        let address = ((high_nn as u16) << 8 | low_nn as u16) + cpu.registers.x as u16;
+        let address = ((high_nn as u16) << 8 | low_nn as u16).wrapping_add(cpu.registers.x as u16);
         cpu.registers.acc |= cpu.read_byte(address);
 
         cpu.registers.set_z(cpu.registers.acc == 0);
@@ -214,13 +215,13 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         /* ASL nnnn,X */
         let low_nn = cpu.fetch_byte();
         let high_nn = cpu.fetch_byte();
-        let address = ((high_nn as u16) << 8 | low_nn as u16) + cpu.registers.x as u16;
+        let address = ((high_nn as u16) << 8 | low_nn as u16).wrapping_add(cpu.registers.x as u16);
         let old_value = cpu.read_byte(address);
         let result = old_value << 1;
         cpu.write_byte(address, result);
 
         cpu.registers.set_c(old_value >> 7 == 1);
-        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_z(result == 0);
         cpu.registers.set_n(result >> 7 == 1);
     },
     |_| {
@@ -229,11 +230,13 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x20 */
         /* JSR nnnn */
-        cpu.push_stack(((cpu.registers.pc + 1) >> 8) as u8);
-        cpu.push_stack((cpu.registers.pc + 1) as u8);
-        let low_address = cpu.fetch_byte();
-        let high_address = cpu.fetch_byte();
-        cpu.registers.pc = (high_address as u16) << 8 | low_address as u16;
+        let low_value = cpu.fetch_byte();
+        let high_addr = cpu.registers.pc;
+        let _high_value = cpu.fetch_byte();
+        cpu.push_stack(((cpu.registers.pc.wrapping_sub(1)) >> 8) as u8);
+        cpu.push_stack(cpu.registers.pc.wrapping_sub(1) as u8);
+        let high_value = cpu.read_byte(high_addr);
+        cpu.registers.pc = (high_value as u16) << 8 | low_value as u16;
     },
     |cpu| {
         /* 0x21 */
@@ -284,7 +287,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         cpu.write_byte(nn as u16, result);
 
         cpu.registers.set_c(old_value >> 7 == 1);
-        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_z(result == 0);
         cpu.registers.set_n(result >> 7 == 1);
     },
     |_| {
@@ -354,7 +357,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         cpu.write_byte(address, result);
 
         cpu.registers.set_c(old_value >> 7 == 1);
-        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_z(result == 0);
         cpu.registers.set_n(result >> 7 == 1);
     },
     |_| {
@@ -363,8 +366,9 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x30 */
         /* BMI nn */
+        let nn = cpu.fetch_byte() as i8 as i16;
         if cpu.registers.get_n() {
-            cpu.registers.pc = cpu.registers.pc.wrapping_add_signed(cpu.fetch_byte() as i8 as i16);
+            cpu.registers.pc = cpu.registers.pc.wrapping_add_signed(nn);
         }
     },
     |cpu| {
@@ -372,8 +376,8 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         /* AND (nn),Y */
         let nn = cpu.fetch_byte();
         let low_address = cpu.read_byte(nn as u16);
-        let high_address = cpu.read_byte((nn + 1) as u16);
-        let address = ((high_address as u16) << 8 | low_address as u16) + cpu.registers.y as u16;
+        let high_address = cpu.read_byte(nn.wrapping_add(1) as u16);
+        let address = ((high_address as u16) << 8 | low_address as u16).wrapping_add(cpu.registers.y as u16);
         cpu.registers.acc &= cpu.read_byte(address);
 
         cpu.registers.set_z(cpu.registers.acc == 0);
@@ -409,7 +413,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         cpu.write_byte(address as u16, result);
 
         cpu.registers.set_c(old_value >> 7 == 1);
-        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_z(result == 0);
         cpu.registers.set_n(result >> 7 == 1);
     },
     |_| {
@@ -463,7 +467,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         cpu.write_byte(address, result);
 
         cpu.registers.set_c(old_value >> 7 == 1);
-        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_z(result == 0);
         cpu.registers.set_n(result >> 7 == 1);
     },
     |_| {
@@ -515,7 +519,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         cpu.write_byte(nn as u16, result);
 
         cpu.registers.set_c(old_value & 0b0000_0001 == 1);
-        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_z(result == 0);
         cpu.registers.set_n(false);
     },
     |_| {
@@ -578,7 +582,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         cpu.write_byte(address, result);
 
         cpu.registers.set_c(old_value & 0b0000_0001 == 1);
-        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_z(result == 0);
         cpu.registers.set_n(false);
     },
     |_| {
@@ -587,8 +591,9 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x50 */
         /* BVC nn */
+        let nn = cpu.fetch_byte() as i8 as i16;
         if !cpu.registers.get_v() {
-            cpu.registers.pc = cpu.registers.pc.wrapping_add_signed(cpu.fetch_byte() as i8 as i16);
+            cpu.registers.pc = cpu.registers.pc.wrapping_add_signed(nn);
         }
     },
     |cpu| {
@@ -596,8 +601,8 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         /* EOR (nn),Y */
         let nn = cpu.fetch_byte();
         let low_address = cpu.read_byte(nn as u16);
-        let high_address = cpu.read_byte((nn + 1) as u16);
-        let address = ((high_address as u16) << 8 | low_address as u16) + cpu.registers.y as u16;
+        let high_address = cpu.read_byte(nn.wrapping_add(1) as u16);
+        let address = ((high_address as u16) << 8 | low_address as u16).wrapping_add(cpu.registers.y as u16);
         cpu.registers.acc ^= cpu.read_byte(address);
 
         cpu.registers.set_z(cpu.registers.acc == 0);
@@ -632,7 +637,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         cpu.write_byte(address as u16, result);
 
         cpu.registers.set_c(old_value & 0b0000_0001 == 1);
-        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_z(result == 0);
         cpu.registers.set_n(false);
     },
     |_| {
@@ -685,7 +690,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         cpu.write_byte(address, result);
 
         cpu.registers.set_c(old_value & 0b0000_0001 == 1);
-        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_z(result == 0);
         cpu.registers.set_n(false);
     },
     |_| {
@@ -755,7 +760,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         cpu.write_byte(nn as u16, result);
 
         cpu.registers.set_c(old_value & 0b0000_0001 == 1);
-        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_z(result == 0);
         cpu.registers.set_n(high_value != 0);
     },
     |_| {
@@ -837,7 +842,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         cpu.write_byte(address, result);
 
         cpu.registers.set_c(old_value & 0b0000_0001 == 1);
-        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_z(result == 0);
         cpu.registers.set_n(high_value != 0);
     },
     |_| {
@@ -846,8 +851,9 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x70 */
         /* BVS */
+        let nn = cpu.fetch_byte() as i8 as i16;
         if cpu.registers.get_v() {
-            cpu.registers.pc = cpu.registers.pc.wrapping_add_signed(cpu.fetch_byte() as i8 as i16);
+            cpu.registers.pc = cpu.registers.pc.wrapping_add_signed(nn);
         }
     },
     |cpu| {
@@ -855,8 +861,8 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         /* ADC (nn),Y */
         let nn = cpu.fetch_byte();
         let low_address = cpu.read_byte(nn as u16);
-        let high_address = cpu.read_byte((nn + 1) as u16);
-        let address = ((high_address as u16) << 8 | low_address as u16) + cpu.registers.y as u16;
+        let high_address = cpu.read_byte(nn.wrapping_add(1) as u16);
+        let address = ((high_address as u16) << 8 | low_address as u16).wrapping_add(cpu.registers.y as u16);
         let value = cpu.read_byte(address);
         let carry = cpu.registers.get_c() as u8;
 
@@ -908,7 +914,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         cpu.write_byte(address as u16, result);
 
         cpu.registers.set_c(old_value & 0b0000_0001 == 1);
-        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_z(result == 0);
         cpu.registers.set_n(high_value != 0);
     },
     |_| {
@@ -978,7 +984,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         cpu.write_byte(address, result);
 
         cpu.registers.set_c(old_value & 0b0000_0001 == 1);
-        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_z(result == 0);
         cpu.registers.set_n(high_value != 0);
     },
     |_| {
@@ -1075,8 +1081,9 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x90 */
         /* BCC nn */
+        let nn = cpu.fetch_byte() as i8 as i16;
         if !cpu.registers.get_c() {
-            cpu.registers.pc = cpu.registers.pc.wrapping_add_signed(cpu.fetch_byte() as i8 as i16);
+            cpu.registers.pc = cpu.registers.pc.wrapping_add_signed(nn);
         }
     },
     |cpu| {
@@ -1084,8 +1091,8 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         /* STA (nn),Y */
         let nn = cpu.fetch_byte();
         let low_address = cpu.read_byte(nn as u16);
-        let high_address = cpu.read_byte((nn + 1) as u16);
-        let address = ((high_address as u16) << 8 | low_address as u16) + cpu.registers.y as u16;
+        let high_address = cpu.read_byte(nn.wrapping_add(1) as u16);
+        let address = ((high_address as u16) << 8 | low_address as u16).wrapping_add(cpu.registers.y as u16);
         cpu.write_byte(address, cpu.registers.acc);
     },
     |_| {
@@ -1290,8 +1297,9 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0xB0 */
         /* BCS nn */
+        let nn = cpu.fetch_byte() as i8 as i16;
         if cpu.registers.get_c() {
-            cpu.registers.pc = cpu.registers.pc.wrapping_add_signed(cpu.fetch_byte() as i8 as i16);
+            cpu.registers.pc = cpu.registers.pc.wrapping_add_signed(nn);
         }
     },
     |cpu| {
@@ -1299,8 +1307,8 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         /* LDA (nn),Y */
         let nn = cpu.fetch_byte();
         let low_address = cpu.read_byte(nn as u16);
-        let high_address = cpu.read_byte((nn + 1) as u16);
-        let address = ((high_address as u16) << 8 | low_address as u16) + cpu.registers.y as u16;
+        let high_address = cpu.read_byte(nn.wrapping_add(1) as u16);
+        let address = ((high_address as u16) << 8 | low_address as u16).wrapping_add(cpu.registers.y as u16);
         let value = cpu.read_byte(address);
         cpu.registers.acc = value;
 
@@ -1549,8 +1557,9 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0xD0 */
         /* BNE */
+        let nn = cpu.fetch_byte() as i8 as i16;
         if !cpu.registers.get_z() {
-            cpu.registers.pc = cpu.registers.pc.wrapping_add_signed(cpu.fetch_byte() as i8 as i16);
+            cpu.registers.pc = cpu.registers.pc.wrapping_add_signed(nn);
         }
     },
     |cpu| {
@@ -1558,8 +1567,8 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         /* CMP (nn),Y */
         let nn = cpu.fetch_byte();
         let low_address = cpu.read_byte(nn as u16);
-        let high_address = cpu.read_byte((nn + 1) as u16);
-        let address = ((high_address as u16) << 8 | low_address as u16) + cpu.registers.y as u16;
+        let high_address = cpu.read_byte(nn.wrapping_add(1) as u16);
+        let address = ((high_address as u16) << 8 | low_address as u16).wrapping_add(cpu.registers.y as u16);
         let value = cpu.read_byte(address);
         let result = cpu.registers.acc.wrapping_sub(value);
 
@@ -1819,8 +1828,9 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0xF0 */
         /* BEQ */
+        let nn = cpu.fetch_byte() as i8 as i16;
         if cpu.registers.get_z() {
-            cpu.registers.pc = cpu.registers.pc.wrapping_add_signed(cpu.fetch_byte() as i8 as i16);
+            cpu.registers.pc = cpu.registers.pc.wrapping_add_signed(nn);
         }
     },
     |cpu| {
@@ -1828,8 +1838,8 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         /* SBC (nn),Y */
         let nn = cpu.fetch_byte();
         let low_address = cpu.read_byte(nn as u16);
-        let high_address = cpu.read_byte((nn + 1) as u16);
-        let address = ((high_address as u16) << 8 | low_address as u16) + cpu.registers.y as u16;
+        let high_address = cpu.read_byte(nn.wrapping_add(1) as u16);
+        let address = ((high_address as u16) << 8 | low_address as u16).wrapping_add(cpu.registers.y as u16);
         let value = cpu.read_byte(address);
         let carry = !cpu.registers.get_c() as u8;
 
