@@ -1,10 +1,8 @@
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use pixels::{wgpu, Pixels, PixelsBuilder, SurfaceTexture};
-use winit::event_loop::EventLoopProxy;
 use winit::window::Window;
 use libstellars::{Color, Stellar, SCREEN_HEIGHT, SCREEN_WIDTH};
-use crate::app::StellarsEvent;
 
 pub const SCALE_FACTOR: f32 = 5.0;
 
@@ -19,13 +17,13 @@ pub struct StellarsRender {
 impl StellarsRender {
     pub fn new(window: Arc<Window>, libstellars: Arc<RwLock<Stellar>>) -> Self {
         let surface_texture = SurfaceTexture::new(
-            libstellars::SCREEN_WIDTH as u32 * SCALE_FACTOR as u32,
-            libstellars::SCREEN_HEIGHT as u32 * SCALE_FACTOR as u32,
+            SCREEN_WIDTH as u32 * SCALE_FACTOR as u32,
+            SCREEN_HEIGHT as u32 * SCALE_FACTOR as u32,
             window.clone(),
         );
         let mut pixels = PixelsBuilder::new(
-            libstellars::SCREEN_WIDTH as u32,
-            libstellars::SCREEN_HEIGHT as u32,
+            SCREEN_WIDTH as u32,
+            SCREEN_HEIGHT as u32,
             surface_texture,
         )
         .blend_state(wgpu::BlendState::REPLACE)
@@ -43,10 +41,12 @@ impl StellarsRender {
         }
     }
 
-    pub fn run(&mut self, event_loop_proxy: EventLoopProxy<StellarsEvent>) {
+    pub fn run(&mut self) {
         self.libstellars.read().unwrap().load_rom(PathBuf::from("./stellars-gui/resources/kernel_01.bin"));
+
         let stellars = self.libstellars.clone();
         let picture_buffer = self.picture_buffer.clone();
+        let window = self.window.clone();
 
         std::thread::spawn(move || {
             loop {
@@ -54,9 +54,7 @@ impl StellarsRender {
 
                 if let Some(pic_buff) = stellars.read().unwrap().get_picture_buffer() {
                     picture_buffer.write().unwrap().copy_from_slice(pic_buff.as_slice());
-                    if let Err(e) = event_loop_proxy.send_event(StellarsEvent::FrameReady) {
-                        eprintln!("{e}");
-                    }
+                    window.request_redraw();
                 }
             }
         });
