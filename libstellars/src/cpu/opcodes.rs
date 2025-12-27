@@ -986,17 +986,46 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let high_address = cpu.read_byte(nn.wrapping_add(1) as u16);
         let address = ((high_address as u16) << 8 | low_address as u16).wrapping_add(cpu.registers.y as u16);
         let value = cpu.read_byte(address);
-        let carry = cpu.registers.get_c() as u8;
+        let mut carry = cpu.registers.get_c() as u8;
 
-        let result = cpu.registers.acc as u16 + value as u16 + carry as u16;
+        let mut result = cpu.registers.acc as u16 + value as u16 + carry as u16;
         let signed_result = (cpu.registers.acc as i8) as i16 + (value as i8) as i16 + carry as i16;
 
-        cpu.registers.acc = result as u8;
+        cpu.registers.set_z(result & 0xFF == 0);
 
-        cpu.registers.set_c(result > 0xFF);
-        cpu.registers.set_v(!(-128..=127).contains(&signed_result));
-        cpu.registers.set_z(cpu.registers.acc == 0);
-        cpu.registers.set_n(cpu.registers.acc >> 7 == 1);
+        if cpu.registers.get_d() {
+            let mut tmp = ((cpu.registers.acc & 0x0F) + (value & 0x0F) + carry) as u16;
+
+            if tmp > 0x09 {
+                tmp += 0x06;
+                cpu.registers.set_c(true);
+                carry = 1;
+            } else {
+                cpu.registers.set_c(false);
+                carry = 0;
+            }
+
+            tmp = (cpu.registers.acc as u16 & 0xF0) + (value as u16 & 0xF0) + ((carry as u16) << 4) + (tmp & 0x0F);
+
+            cpu.registers.set_n(tmp & 0x80 != 0);
+            let v = !(cpu.registers.acc ^ value) & (cpu.registers.acc ^ tmp as u8) & 0x80;
+            cpu.registers.set_v(v != 0);
+
+            if tmp > 0x9F {
+                tmp += 0x60;
+                cpu.registers.set_c(true);
+            } else {
+                cpu.registers.set_c(false);
+            }
+
+            result = tmp;
+        } else {
+            cpu.registers.set_c(result > 0xFF);
+            cpu.registers.set_n(result & 0x80 != 0);
+            cpu.registers.set_v(!(-128..=127).contains(&signed_result));
+        }
+
+        cpu.registers.acc = result as u8;
     },
     |_| {
         /* 0x72 */
@@ -1013,17 +1042,46 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let nn = cpu.fetch_byte();
         let address = nn.wrapping_add(cpu.registers.x);
         let value = cpu.read_byte(address as u16);
-        let carry = cpu.registers.get_c() as u8;
+        let mut carry = cpu.registers.get_c() as u8;
 
-        let result = cpu.registers.acc as u16 + value as u16 + carry as u16;
+        let mut result = cpu.registers.acc as u16 + value as u16 + carry as u16;
         let signed_result = (cpu.registers.acc as i8) as i16 + (value as i8) as i16 + carry as i16;
 
-        cpu.registers.acc = result as u8;
+        cpu.registers.set_z(result & 0xFF == 0);
 
-        cpu.registers.set_c(result > 0xFF);
-        cpu.registers.set_v(!(-128..=127).contains(&signed_result));
-        cpu.registers.set_z(cpu.registers.acc == 0);
-        cpu.registers.set_n(cpu.registers.acc >> 7 == 1);
+        if cpu.registers.get_d() {
+            let mut tmp = ((cpu.registers.acc & 0x0F) + (value & 0x0F) + carry) as u16;
+
+            if tmp > 0x09 {
+                tmp += 0x06;
+                cpu.registers.set_c(true);
+                carry = 1;
+            } else {
+                cpu.registers.set_c(false);
+                carry = 0;
+            }
+
+            tmp = (cpu.registers.acc as u16 & 0xF0) + (value as u16 & 0xF0) + ((carry as u16) << 4) + (tmp & 0x0F);
+
+            cpu.registers.set_n(tmp & 0x80 != 0);
+            let v = !(cpu.registers.acc ^ value) & (cpu.registers.acc ^ tmp as u8) & 0x80;
+            cpu.registers.set_v(v != 0);
+
+            if tmp > 0x9F {
+                tmp += 0x60;
+                cpu.registers.set_c(true);
+            } else {
+                cpu.registers.set_c(false);
+            }
+
+            result = tmp;
+        } else {
+            cpu.registers.set_c(result > 0xFF);
+            cpu.registers.set_n(result & 0x80 != 0);
+            cpu.registers.set_v(!(-128..=127).contains(&signed_result));
+        }
+
+        cpu.registers.acc = result as u8;
     },
     |cpu| {
         /* 0x76 */
@@ -1054,17 +1112,46 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let high_nn = cpu.fetch_byte();
         let address = ((high_nn as u16) << 8 | low_nn as u16).wrapping_add(cpu.registers.y as u16);
         let value = cpu.read_byte(address);
-        let carry = cpu.registers.get_c() as u8;
+        let mut carry = cpu.registers.get_c() as u8;
 
-        let result = cpu.registers.acc as u16 + value as u16 + carry as u16;
+        let mut result = cpu.registers.acc as u16 + value as u16 + carry as u16;
         let signed_result = (cpu.registers.acc as i8) as i16 + (value as i8) as i16 + carry as i16;
 
-        cpu.registers.acc = result as u8;
+        cpu.registers.set_z(result & 0xFF == 0);
 
-        cpu.registers.set_c(result > 0xFF);
-        cpu.registers.set_v(!(-128..=127).contains(&signed_result));
-        cpu.registers.set_z(cpu.registers.acc == 0);
-        cpu.registers.set_n(cpu.registers.acc >> 7 == 1);
+        if cpu.registers.get_d() {
+            let mut tmp = ((cpu.registers.acc & 0x0F) + (value & 0x0F) + carry) as u16;
+
+            if tmp > 0x09 {
+                tmp += 0x06;
+                cpu.registers.set_c(true);
+                carry = 1;
+            } else {
+                cpu.registers.set_c(false);
+                carry = 0;
+            }
+
+            tmp = (cpu.registers.acc as u16 & 0xF0) + (value as u16 & 0xF0) + ((carry as u16) << 4) + (tmp & 0x0F);
+
+            cpu.registers.set_n(tmp & 0x80 != 0);
+            let v = !(cpu.registers.acc ^ value) & (cpu.registers.acc ^ tmp as u8) & 0x80;
+            cpu.registers.set_v(v != 0);
+
+            if tmp > 0x9F {
+                tmp += 0x60;
+                cpu.registers.set_c(true);
+            } else {
+                cpu.registers.set_c(false);
+            }
+
+            result = tmp;
+        } else {
+            cpu.registers.set_c(result > 0xFF);
+            cpu.registers.set_n(result & 0x80 != 0);
+            cpu.registers.set_v(!(-128..=127).contains(&signed_result));
+        }
+
+        cpu.registers.acc = result as u8;
     },
     |_| {
         /* 0x7A */
@@ -1082,17 +1169,46 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let high_nn = cpu.fetch_byte();
         let address = ((high_nn as u16) << 8 | low_nn as u16).wrapping_add(cpu.registers.x as u16);
         let value = cpu.read_byte(address);
-        let carry = cpu.registers.get_c() as u8;
+        let mut carry = cpu.registers.get_c() as u8;
 
-        let result = cpu.registers.acc as u16 + value as u16 + carry as u16;
+        let mut result = cpu.registers.acc as u16 + value as u16 + carry as u16;
         let signed_result = (cpu.registers.acc as i8) as i16 + (value as i8) as i16 + carry as i16;
 
-        cpu.registers.acc = result as u8;
+        cpu.registers.set_z(result & 0xFF == 0);
 
-        cpu.registers.set_c(result > 0xFF);
-        cpu.registers.set_v(!(-128..=127).contains(&signed_result));
-        cpu.registers.set_z(cpu.registers.acc == 0);
-        cpu.registers.set_n(cpu.registers.acc >> 7 == 1);
+        if cpu.registers.get_d() {
+            let mut tmp = ((cpu.registers.acc & 0x0F) + (value & 0x0F) + carry) as u16;
+
+            if tmp > 0x09 {
+                tmp += 0x06;
+                cpu.registers.set_c(true);
+                carry = 1;
+            } else {
+                cpu.registers.set_c(false);
+                carry = 0;
+            }
+
+            tmp = (cpu.registers.acc as u16 & 0xF0) + (value as u16 & 0xF0) + ((carry as u16) << 4) + (tmp & 0x0F);
+
+            cpu.registers.set_n(tmp & 0x80 != 0);
+            let v = !(cpu.registers.acc ^ value) & (cpu.registers.acc ^ tmp as u8) & 0x80;
+            cpu.registers.set_v(v != 0);
+
+            if tmp > 0x9F {
+                tmp += 0x60;
+                cpu.registers.set_c(true);
+            } else {
+                cpu.registers.set_c(false);
+            }
+
+            result = tmp;
+        } else {
+            cpu.registers.set_c(result > 0xFF);
+            cpu.registers.set_n(result & 0x80 != 0);
+            cpu.registers.set_v(!(-128..=127).contains(&signed_result));
+        }
+
+        cpu.registers.acc = result as u8;
     },
     |cpu| {
         /* 0x7E */
@@ -1239,9 +1355,9 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     },
     |cpu| {
         /* 0x96 */
-        /* STX nn,X */
+        /* STX nn,Y */
         let nn = cpu.fetch_byte();
-        let address = nn.wrapping_add(cpu.registers.x);
+        let address = nn.wrapping_add(cpu.registers.y);
         cpu.write_byte(address as u16, cpu.registers.x);
     },
     |_| {
@@ -1465,9 +1581,9 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     },
     |cpu| {
         /* 0xB6 */
-        /* LDX nn,X */
+        /* LDX nn,Y */
         let nn = cpu.fetch_byte();
-        let address = nn.wrapping_add(cpu.registers.x);
+        let address = nn.wrapping_add(cpu.registers.y);
         cpu.registers.x = cpu.read_byte(address as u16);
 
         cpu.registers.set_z(cpu.registers.x == 0);
@@ -1495,7 +1611,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0xBA */
         /* TSX */
-        cpu.registers.sp = cpu.registers.x;
+        cpu.registers.x = cpu.registers.sp;
 
         cpu.registers.set_z(cpu.registers.sp == 0);
         cpu.registers.set_n(cpu.registers.sp >> 7 == 1);
@@ -1810,7 +1926,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let value = cpu.read_byte(address);
         let carry = !cpu.registers.get_c() as u8;
 
-        let result = cpu.registers.acc as u16 - value as u16 - carry as u16;
+        let result = (cpu.registers.acc as u16).wrapping_sub(value as u16).wrapping_sub(carry as u16);
         let signed_result = (cpu.registers.acc as i8) as i16 - (value as i8) as i16 - carry as i16;
 
         cpu.registers.acc = result as u8;
