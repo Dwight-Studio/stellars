@@ -6,7 +6,7 @@ use winit::dpi::LogicalSize;
 use winit::event::{WindowEvent};
 use winit::event_loop::{ActiveEventLoop};
 use winit::window::{Window, WindowId};
-use libstellars::Stellar;
+use libstellars::{Stellar, SCREEN_HEIGHT, SCREEN_WIDTH};
 
 mod stellars_render;
 
@@ -29,8 +29,8 @@ impl ApplicationHandler for App {
         let stellars_render_attrs = Window::default_attributes()
             .with_title("Stellars Render")
             .with_inner_size(LogicalSize::new(
-                720.0,
-                480.0
+                SCREEN_WIDTH as f64 * 4.0,
+                SCREEN_HEIGHT as f64 * 2.0
             ));
         let render_window = Arc::new(event_loop.create_window(stellars_render_attrs).unwrap());
         let mut stellars_render = StellarsRender::new(render_window.clone(), self.libstellars.clone());
@@ -54,6 +54,9 @@ impl ApplicationHandler for App {
             }
             WindowEvent::RedrawRequested => {
                 stellars_render.render();
+            }
+            WindowEvent::Resized(size) => {
+                stellars_render.resize(size);
             }
             _ => {}
         }

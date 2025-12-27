@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use pixels::{wgpu, Pixels, PixelsBuilder, SurfaceTexture};
+use winit::dpi::PhysicalSize;
 use winit::window::Window;
 use libstellars::{Color, Stellar, SCREEN_HEIGHT, SCREEN_WIDTH};
 
@@ -17,13 +18,13 @@ pub struct StellarsRender {
 impl StellarsRender {
     pub fn new(window: Arc<Window>, libstellars: Arc<RwLock<Stellar>>) -> Self {
         let surface_texture = SurfaceTexture::new(
-            SCREEN_WIDTH as u32 * SCALE_FACTOR as u32,
-            SCREEN_HEIGHT as u32 * SCALE_FACTOR as u32,
+            SCREEN_WIDTH as u32 * 4,
+            SCREEN_HEIGHT as u32 * 2,
             window.clone(),
         );
         let mut pixels = PixelsBuilder::new(
-            SCREEN_WIDTH as u32,
-            SCREEN_HEIGHT as u32,
+            SCREEN_WIDTH as u32 * 4,
+            SCREEN_HEIGHT as u32 * 2,
             surface_texture,
         )
         .blend_state(wgpu::BlendState::REPLACE)
@@ -62,17 +63,36 @@ impl StellarsRender {
 
     pub fn render(&mut self) {
         let mut buff = Vec::<u8>::new();
+        let picture_buffer = self.picture_buffer.read().unwrap();
+        let mut line_buffer = [Color { r: 0x00, g: 0x00, b: 0x00 }; SCREEN_WIDTH as usize];
 
-        for pixel in self.picture_buffer.read().unwrap().iter() {
-            buff.push(pixel.r); // Red
-            buff.push(pixel.g); // Green
-            buff.push(pixel.b); // Blue
-            buff.push(0xFF); // Alpha
+        for i in 0..picture_buffer.len() {
+            let pixel = picture_buffer[i];
+            line_buffer[i % SCREEN_WIDTH as usize] = pixel;
+
+            if i % SCREEN_WIDTH as usize == 159 {
+                for _ in 0..2 {
+                    for pixel in line_buffer {
+                        for _ in 0..4 {
+                            buff.push(pixel.r);
+                            buff.push(pixel.g);
+                            buff.push(pixel.b);
+                            buff.push(0xFF);
+                        }
+                    }
+                }
+            }
         }
+
+        drop(picture_buffer);
 
         let frame = self.render_buffer.frame_mut();
         frame[..buff.len()].copy_from_slice(buff.as_slice());
 
         self.render_buffer.render().unwrap();
+    }
+
+    pub fn resize(&mut self, size: PhysicalSize<u32>) {
+        self.render_buffer.resize_surface(size.width, size.height).unwrap();
     }
 }
