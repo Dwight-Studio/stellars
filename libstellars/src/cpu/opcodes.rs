@@ -720,10 +720,6 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let mut result = cpu.registers.acc as u16 + value as u16 + carry as u16;
         let signed_result = (cpu.registers.acc as i8) as i16 + (value as i8) as i16 + carry as i16;
 
-        println!("---------------");
-        println!("result: 0x{:04X}", result);
-
-        cpu.registers.set_v(!(-128..=127).contains(&signed_result));
         cpu.registers.set_z(result & 0xFF == 0);
 
         if cpu.registers.get_d() {
@@ -741,9 +737,8 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
             tmp = (cpu.registers.acc as u16 & 0xF0) + (value as u16 & 0xF0) + ((carry as u16) << 4) + (tmp & 0x0F);
 
             cpu.registers.set_n(tmp & 0x80 != 0);
-            //let v = !(cpu.registers.acc ^ nn) & (cpu.registers.acc ^ tmp as u8) & 0x80;
-            //println!("v: {:02X}", v);
-            //cpu.registers.set_v(v != 0);
+            let v = !(cpu.registers.acc ^ value) & (cpu.registers.acc ^ tmp as u8) & 0x80;
+            cpu.registers.set_v(v != 0);
 
             if tmp > 0x9F {
                 tmp += 0x60;
@@ -753,11 +748,10 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
             }
 
             result = tmp;
-
-            println!("result: 0x{:04X}", result);
         } else {
             cpu.registers.set_c(result > 0xFF);
             cpu.registers.set_n(result & 0x80 != 0);
+            cpu.registers.set_v(!(-128..=127).contains(&signed_result));
         }
 
         cpu.registers.acc = result as u8;
