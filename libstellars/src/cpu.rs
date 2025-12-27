@@ -45,9 +45,9 @@ impl Cpu {
     }
 
     fn pull_stack(&mut self) -> u8 {
-        let address = 0x100 + self.registers.sp as u16;
-        self.registers.sp += 1;
+        self.registers.sp = self.registers.sp.wrapping_add(1);
         self.cycles += 1;
+        let address = 0x100 + self.registers.sp as u16;
 
         self.bus.as_ref().unwrap().read().unwrap().read_byte(address)
     }
