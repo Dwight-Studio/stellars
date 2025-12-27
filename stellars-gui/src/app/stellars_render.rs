@@ -53,7 +53,6 @@ impl StellarsRender {
                 stellars.read().unwrap().execute();
 
                 if let Some(pic_buff) = stellars.read().unwrap().get_picture_buffer() {
-                    println!("RENDER!");
                     picture_buffer.write().unwrap().copy_from_slice(pic_buff.as_slice());
                     if let Err(e) = event_loop_proxy.send_event(StellarsEvent::FrameReady) {
                         eprintln!("{e}");

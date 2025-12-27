@@ -379,6 +379,7 @@ impl Tia {
         for _ in 0..cycles * 3 {
             if (self.get_write_function(WriteFunctions::VSYNC) >> 1) & 0x1 == 0x1 ||
                 (self.get_write_function(WriteFunctions::VBLANK) >> 1) & 0x1 == 0x1 {
+                self.frame_ready = true;
                 self.pic_x = 0x00;
                 self.pic_y = 0x00;
                 break;
@@ -390,7 +391,6 @@ impl Tia {
             }
 
             if self.pic_y >= 192 {
-                self.frame_ready = true;
                 break;
             }
 
