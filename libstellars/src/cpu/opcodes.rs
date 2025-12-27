@@ -715,34 +715,49 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let high_address = cpu.read_byte(nn.wrapping_add(cpu.registers.x).wrapping_add(1) as u16);
         let address = (high_address as u16) << 8 | low_address as u16;
         let value = cpu.read_byte(address);
-        let carry = cpu.registers.get_c() as u8;
+        let mut carry = cpu.registers.get_c() as u8;
 
         let mut result = cpu.registers.acc as u16 + value as u16 + carry as u16;
         let signed_result = (cpu.registers.acc as i8) as i16 + (value as i8) as i16 + carry as i16;
 
-        cpu.registers.set_z(result == 0);
-        cpu.registers.set_n(result & 0x80 != 0);
+        println!("---------------");
+        println!("result: 0x{:04X}", result);
+
         cpu.registers.set_v(!(-128..=127).contains(&signed_result));
+        cpu.registers.set_z(result & 0xFF == 0);
 
         if cpu.registers.get_d() {
-            let mut low = (cpu.registers.acc & 0x0F) + (value & 0x0F) + carry;
-            let mut high = (cpu.registers.acc >> 4) + (value >> 4);
+            let mut tmp = ((cpu.registers.acc & 0x0F) + (value & 0x0F) + carry) as u16;
 
-            if low > 9 {
-                low += 6;
-                high += 1;
+            if tmp > 0x09 {
+                tmp += 0x06;
+                cpu.registers.set_c(true);
+                carry = 1;
+            } else {
+                cpu.registers.set_c(false);
+                carry = 0;
             }
 
-            if high > 9 {
-                high += 6;
+            tmp = (cpu.registers.acc as u16 & 0xF0) + (value as u16 & 0xF0) + ((carry as u16) << 4) + (tmp & 0x0F);
+
+            cpu.registers.set_n(tmp & 0x80 != 0);
+            //let v = !(cpu.registers.acc ^ nn) & (cpu.registers.acc ^ tmp as u8) & 0x80;
+            //println!("v: {:02X}", v);
+            //cpu.registers.set_v(v != 0);
+
+            if tmp > 0x9F {
+                tmp += 0x60;
                 cpu.registers.set_c(true);
             } else {
                 cpu.registers.set_c(false);
             }
 
-            result = ((high << 4) | (low & 0x0F)) as u16;
+            result = tmp;
+
+            println!("result: 0x{:04X}", result);
         } else {
             cpu.registers.set_c(result > 0xFF);
+            cpu.registers.set_n(result & 0x80 != 0);
         }
 
         cpu.registers.acc = result as u8;
