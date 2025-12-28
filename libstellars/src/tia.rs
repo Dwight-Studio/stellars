@@ -1,8 +1,8 @@
 mod colors;
 
-use std::sync::{Arc, RwLock};
-use crate::{Color, Stellar, SCREEN_HEIGHT, SCREEN_WIDTH};
 use crate::tia::colors::NTSC_COLORS;
+use crate::{Color, Stellar, SCREEN_HEIGHT, SCREEN_WIDTH};
+use std::sync::{RwLock, Weak};
 
 #[repr(u8)]
 pub enum WriteFunctions {
@@ -16,7 +16,7 @@ pub enum ReadFunctions {
 }
 
 pub struct Tia {
-    pub(crate) bus: Option<Arc<RwLock<Stellar>>>,
+    pub(crate) bus: Option<Weak<RwLock<Stellar>>>,
     pub(crate) frame_ready: bool,
     pub(crate) pic_buffer: [Color; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize],
 

@@ -35,8 +35,8 @@ impl Stellar {
             cpu: Arc::new(RwLock::new(Cpu::new())),
         }));
 
-        bus.read().unwrap().tia.write().unwrap().bus = Some(bus.clone());
-        bus.read().unwrap().cpu.write().unwrap().bus = Some(bus.clone());
+        bus.read().unwrap().tia.write().unwrap().bus = Some(Arc::downgrade(&bus));
+        bus.read().unwrap().cpu.write().unwrap().bus = Some(Arc::downgrade(&bus));
 
         bus
     }
