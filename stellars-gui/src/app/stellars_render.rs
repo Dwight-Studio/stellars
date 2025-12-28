@@ -5,26 +5,26 @@ use winit::dpi::PhysicalSize;
 use winit::window::Window;
 use libstellars::{Color, Stellar, SCREEN_HEIGHT, SCREEN_WIDTH};
 
-pub const SCALE_FACTOR: f32 = 5.0;
-
 pub struct StellarsRender {
     pub window: Arc<Window>,
     render_buffer: Pixels<'static>,
     picture_buffer: Arc<RwLock<[Color; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize]>>,
+    scale_factor: (u32, u32),
 
     libstellars: Arc<RwLock<Stellar>>,
 }
 
 impl StellarsRender {
     pub fn new(window: Arc<Window>, libstellars: Arc<RwLock<Stellar>>) -> Self {
+        let scale_factor = (window.inner_size().width / SCREEN_WIDTH, window.inner_size().height / SCREEN_HEIGHT);
         let surface_texture = SurfaceTexture::new(
-            SCREEN_WIDTH as u32 * 4,
-            SCREEN_HEIGHT as u32 * 2,
+            SCREEN_WIDTH * scale_factor.0,
+            SCREEN_HEIGHT * scale_factor.1,
             window.clone(),
         );
         let mut pixels = PixelsBuilder::new(
-            SCREEN_WIDTH as u32 * 4,
-            SCREEN_HEIGHT as u32 * 2,
+            SCREEN_WIDTH * scale_factor.0,
+            SCREEN_HEIGHT * scale_factor.1,
             surface_texture,
         )
         .blend_state(wgpu::BlendState::REPLACE)
@@ -38,12 +38,14 @@ impl StellarsRender {
             window,
             render_buffer: pixels,
             picture_buffer: Arc::new(RwLock::new([Color { r: 0x00, g: 0x00, b: 0x00 }; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize])),
+            scale_factor,
+
             libstellars
         }
     }
 
     pub fn run(&mut self) {
-        self.libstellars.read().unwrap().load_rom(PathBuf::from("./stellars-gui/resources/kernel_01.bin"));
+        self.libstellars.read().unwrap().load_rom(PathBuf::from("./stellars-gui/resources/kernel_11.bin"));
 
         let stellars = self.libstellars.clone();
         let picture_buffer = self.picture_buffer.clone();
@@ -71,9 +73,9 @@ impl StellarsRender {
             line_buffer[i % SCREEN_WIDTH as usize] = pixel;
 
             if i % SCREEN_WIDTH as usize == 159 {
-                for _ in 0..2 {
+                for _ in 0..self.scale_factor.1 {
                     for pixel in line_buffer {
-                        for _ in 0..4 {
+                        for _ in 0..self.scale_factor.0 {
                             buff.push(pixel.r);
                             buff.push(pixel.g);
                             buff.push(pixel.b);
@@ -92,7 +94,9 @@ impl StellarsRender {
         self.render_buffer.render().unwrap();
     }
 
-    pub fn resize(&mut self, size: PhysicalSize<u32>) {
-        self.render_buffer.resize_surface(size.width, size.height).unwrap();
+    pub fn resize(&mut self, _: PhysicalSize<u32>) {
+        self.scale_factor = (self.window.inner_size().width / SCREEN_WIDTH, self.window.inner_size().height / SCREEN_HEIGHT);
+        self.render_buffer.resize_surface(SCREEN_WIDTH * self.scale_factor.0, SCREEN_HEIGHT * self.scale_factor.1).unwrap();
+        self.render_buffer.resize_buffer(SCREEN_WIDTH * self.scale_factor.0, SCREEN_HEIGHT * self.scale_factor.1).unwrap();
     }
 }

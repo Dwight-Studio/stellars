@@ -11,8 +11,8 @@ mod registers;
 mod memory;
 mod tia;
 
-pub const SCREEN_WIDTH: u8 = 160;
-pub const SCREEN_HEIGHT: u8 = 192;
+pub const SCREEN_WIDTH: u32 = 160;
+pub const SCREEN_HEIGHT: u32 = 192;
 
 #[derive(Copy, Clone)]
 pub struct Color {

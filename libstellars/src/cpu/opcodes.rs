@@ -1991,6 +1991,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
 
         cpu.registers.set_z(cpu.registers.x == 0);
         cpu.registers.set_n(cpu.registers.x >> 7 == 1);
+        cpu.cycles += 1;
     },
     |cpu| {
         /* 0xE9 */
@@ -2008,9 +2009,10 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         cpu.registers.set_z(cpu.registers.acc == 0);
         cpu.registers.set_n(cpu.registers.acc >> 7 == 1);
     },
-    |_| {
+    |cpu| {
         /* 0xEA */
         /* NOP */
+        cpu.cycles += 1;
     },
     |_| {
         /* 0xEB */

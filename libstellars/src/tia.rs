@@ -7,7 +7,6 @@ use crate::tia::colors::NTSC_COLORS;
 #[repr(u8)]
 pub enum WriteFunctions {
     Vsync = 0x00,
-    Vblank = 0x01,
     Wsync = 0x02,
     Colubk = 0x09,
 }
@@ -27,6 +26,7 @@ pub struct Tia {
     pic_x: u8,
     pic_y: u8,
     wsync_enabled: bool,
+    vblank: (bool, u16),
 }
 
 impl Tia {
@@ -41,6 +41,7 @@ impl Tia {
             pic_x: 0x0000,
             pic_y: 0x0000,
             wsync_enabled: false,
+            vblank: (true, 0),
             pic_buffer: [Color { r: 0x00, g: 0x00, b: 0x00 }; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize],
         }
     }
@@ -59,10 +60,23 @@ impl Tia {
 
     pub fn tick(&mut self, cycles: u64) {
         for _ in 0..cycles * 3 {
-            if (self.get_write_function(WriteFunctions::Vsync) >> 1) & 0x1 == 0x1 ||
-                (self.get_write_function(WriteFunctions::Vblank) >> 1) & 0x1 == 0x1 {
+            if (self.get_write_function(WriteFunctions::Vsync) >> 1) & 0x1 == 0x1 {
                 self.pic_x = 0x00;
                 self.pic_y = 0x00;
+                self.wsync_enabled = false;
+                self.vblank = (true, 0);
+                break;
+            }
+
+            if (self.vblank.0) {
+                loop {
+                    self.vblank.1 += 1;
+
+                    if self.vblank.1 >= 37 * 228 { self.vblank.0 = false; }
+                    if self.vblank.1.is_multiple_of(228) { self.wsync_enabled = false; }
+
+                    if (!self.wsync_enabled) { break; }
+                }
                 break;
             }
 
