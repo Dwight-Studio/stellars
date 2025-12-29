@@ -103,10 +103,11 @@ impl Tia {
 
                 if self.pic_x >= 68 {
                     let rel_pic_x = self.pic_x - 68;
-                    let pf_register = ((self.get_write_function(WriteFunctions::PF0) as u32) >> 4) << 12 | (self.get_write_function(WriteFunctions::PF1) as u32) << 8 | self.get_write_function(WriteFunctions::PF2) as u32;
+                    let pf_register = ((self.get_write_function(WriteFunctions::PF0) as u32) >> 4) << 16 | (self.get_write_function(WriteFunctions::PF1) as u32) << 8 | self.get_write_function(WriteFunctions::PF2) as u32;
 
-                    // TODO: Implement Playfield Reflection
-                    if self.get_write_function(WriteFunctions::CTRLPF) & 0x1 == 0 && (pf_register >> (19 - (rel_pic_x % (SCREEN_WIDTH as u8 / 2)) / self.pf_pixels_per_bit)) & 0x1 == 1 {
+                    if (rel_pic_x < SCREEN_WIDTH as u8 / 2 && (pf_register >> (19 - rel_pic_x / self.pf_pixels_per_bit)) & 0x1 == 1) ||
+                        (rel_pic_x >= SCREEN_WIDTH as u8 / 2 && self.get_write_function(WriteFunctions::CTRLPF) & 0x1 == 0 && (pf_register >> (19 - (rel_pic_x % (SCREEN_WIDTH as u8 / 2)) / self.pf_pixels_per_bit)) & 0x1 == 1) ||
+                        (rel_pic_x >= SCREEN_WIDTH as u8 / 2 && self.get_write_function(WriteFunctions::CTRLPF) & 0x1 == 1 && (pf_register >> ((rel_pic_x % (SCREEN_WIDTH as u8 / 2)) / self.pf_pixels_per_bit)) & 0x1 == 1) {
                         self.pic_buffer[self.pic_y as usize * SCREEN_WIDTH as usize + (self.pic_x as usize - 68)] = NTSC_COLORS[self.get_write_function(WriteFunctions::Colupf) as usize];
                     } else {
                         self.pic_buffer[self.pic_y as usize * SCREEN_WIDTH as usize + (self.pic_x as usize - 68)] = NTSC_COLORS[self.get_write_function(WriteFunctions::Colubk) as usize];
