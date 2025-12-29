@@ -75,6 +75,7 @@ fn eor(cpu: &mut Cpu, value: u8) {
 fn asl(cpu: &mut Cpu, address: u16) {
     let old_value = cpu.read_byte(address);
     let result = old_value << 1;
+    cpu.write_byte(address, old_value);
     cpu.write_byte(address, result);
 
     cpu.registers.set_c(old_value >> 7 == 1);
@@ -268,8 +269,9 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     [|cpu| {
         /* 0x00 */
         /* BRK */
-        cpu.push_stack(((cpu.registers.pc + 1) >> 8) as u8);
-        cpu.push_stack((cpu.registers.pc + 1) as u8);
+        let _ = cpu.fetch_byte();
+        cpu.push_stack((cpu.registers.pc >> 8) as u8);
+        cpu.push_stack(cpu.registers.pc as u8);
         cpu.push_stack(cpu.registers.p | 0b0001_0000);
         cpu.registers.set_i(true);
         let low_value = cpu.read_byte(0xFFFE);
@@ -312,6 +314,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x08 */
         /* PHP */
+        let _ = cpu.read_byte(cpu.registers.pc);
         cpu.push_stack(cpu.registers.p | 0b0001_0000);
     },
     |cpu| {
@@ -323,6 +326,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x0A */
         /* ASL A */
+        let _ = cpu.read_byte(cpu.registers.pc);
         let old_value = cpu.registers.acc;
         cpu.registers.acc <<= 1;
 
@@ -357,6 +361,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         /* BPL */
         let nn = cpu.fetch_byte() as i8 as i16;
         if !cpu.registers.get_n() {
+            let _ = cpu.read_byte(cpu.registers.pc);
             cpu.registers.pc = cpu.registers.pc.wrapping_add_signed(nn);
         }
     },
