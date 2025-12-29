@@ -2,18 +2,18 @@ use crate::cpu::Cpu;
 
 fn indirect_x(cpu: &mut Cpu) -> u16 {
     let nn = cpu.fetch_byte();
-    let _ = cpu.read_byte(nn as u16);
-    let low_address = cpu.read_byte(nn.wrapping_add(cpu.registers.x) as u16);
-    let high_address = cpu.read_byte(nn.wrapping_add(cpu.registers.x).wrapping_add(1) as u16);
-    (high_address as u16) << 8 | low_address as u16
+    let _ = cpu.read_byte(u16::from(nn));
+    let low_address = cpu.read_byte(u16::from(nn.wrapping_add(cpu.registers.x)));
+    let high_address = cpu.read_byte(u16::from(nn.wrapping_add(cpu.registers.x).wrapping_add(1)));
+    u16::from(high_address) << 8 | u16::from(low_address)
 }
 
 fn indirect_y(cpu: &mut Cpu, force_dummy: bool) -> u16 {
     let nn = cpu.fetch_byte();
-    let low_address = cpu.read_byte(nn as u16);
-    let high_address = cpu.read_byte(nn.wrapping_add(1) as u16);
-    let page = (high_address as u16) << 8;
-    let address = ((high_address as u16) << 8 | low_address as u16).wrapping_add(cpu.registers.y as u16);
+    let low_address = cpu.read_byte(u16::from(nn));
+    let high_address = cpu.read_byte(u16::from(nn.wrapping_add(1)));
+    let page = u16::from(high_address) << 8;
+    let address = (u16::from(high_address) << 8 | u16::from(low_address)).wrapping_add(u16::from(cpu.registers.y));
 
     if (page != address & 0xFF00) || force_dummy {
         cpu.read_byte((page) | (address & 0xFF));
@@ -23,19 +23,19 @@ fn indirect_y(cpu: &mut Cpu, force_dummy: bool) -> u16 {
 }
 
 fn zpg(cpu: &mut Cpu) -> u16 {
-    cpu.fetch_byte() as u16
+    u16::from(cpu.fetch_byte())
 }
 
 fn zpg_x(cpu: &mut Cpu) -> u16 {
     let nn = cpu.fetch_byte();
-    let _ = cpu.read_byte(nn as u16);
-    nn.wrapping_add(cpu.registers.x) as u16
+    let _ = cpu.read_byte(u16::from(nn));
+    u16::from(nn.wrapping_add(cpu.registers.x))
 }
 
 fn zpg_y(cpu: &mut Cpu) -> u16 {
     let nn = cpu.fetch_byte();
-    let _ = cpu.read_byte(nn as u16);
-    nn.wrapping_add(cpu.registers.y) as u16
+    let _ = cpu.read_byte(u16::from(nn));
+    u16::from(nn.wrapping_add(cpu.registers.y))
 }
 
 fn immediate(cpu: &mut Cpu) -> u8 {
@@ -45,14 +45,14 @@ fn immediate(cpu: &mut Cpu) -> u8 {
 fn absolute(cpu: &mut Cpu) -> u16 {
     let low_nn = cpu.fetch_byte();
     let high_nn = cpu.fetch_byte();
-    (high_nn as u16) << 8 | low_nn as u16
+    u16::from(high_nn) << 8 | u16::from(low_nn)
 }
 
 fn absolute_x(cpu: &mut Cpu, force_dummy: bool) -> u16 {
     let low_nn = cpu.fetch_byte();
     let high_nn = cpu.fetch_byte();
-    let page = (high_nn as u16) << 8;
-    let address = ((high_nn as u16) << 8 | low_nn as u16).wrapping_add(cpu.registers.x as u16);
+    let page = u16::from(high_nn) << 8;
+    let address = (u16::from(high_nn) << 8 | u16::from(low_nn)).wrapping_add(u16::from(cpu.registers.x));
 
     if (page != address & 0xFF00) || force_dummy {
         cpu.read_byte((page) | (address & 0xFF));
@@ -64,8 +64,8 @@ fn absolute_x(cpu: &mut Cpu, force_dummy: bool) -> u16 {
 fn absolute_y(cpu: &mut Cpu, force_dummy: bool) -> u16 {
     let low_nn = cpu.fetch_byte();
     let high_nn = cpu.fetch_byte();
-    let page = (high_nn as u16) << 8;
-    let address = ((high_nn as u16) << 8 | low_nn as u16).wrapping_add(cpu.registers.y as u16);
+    let page = u16::from(high_nn) << 8;
+    let address = (u16::from(high_nn) << 8 | u16::from(low_nn)).wrapping_add(u16::from(cpu.registers.y));
 
     if (page != address & 0xFF00) || force_dummy {
         cpu.read_byte((page) | (address & 0xFF));
@@ -121,7 +121,7 @@ fn asl(cpu: &mut Cpu, address: u16) {
 
 fn rol(cpu: &mut Cpu, address: u16) {
     let old_value = cpu.read_byte(address);
-    let low_value = cpu.registers.get_c() as u8;
+    let low_value = u8::from(cpu.registers.get_c());
     let result = (old_value << 1) | low_value;
     cpu.write_byte(address, old_value);
     cpu.write_byte(address, result);
@@ -144,7 +144,7 @@ fn lsr(cpu: &mut Cpu, address: u16) {
 
 fn ror(cpu: &mut Cpu, address: u16) {
     let old_value = cpu.read_byte(address);
-    let high_value = cpu.registers.get_c() as u8;
+    let high_value = u8::from(cpu.registers.get_c());
     let result = (high_value << 7) | (old_value >> 1);
     cpu.write_byte(address, old_value);
     cpu.write_byte(address, result);
@@ -154,16 +154,17 @@ fn ror(cpu: &mut Cpu, address: u16) {
     cpu.registers.set_n(high_value != 0);
 }
 
+#[allow(clippy::cast_possible_wrap)]
 fn adc(cpu: &mut Cpu, value: u8) {
-    let mut carry = cpu.registers.get_c() as u8;
+    let mut carry = u8::from(cpu.registers.get_c());
 
-    let mut result = cpu.registers.acc as u16 + value as u16 + carry as u16;
-    let signed_result = (cpu.registers.acc as i8) as i16 + (value as i8) as i16 + carry as i16;
+    let mut result = u16::from(cpu.registers.acc) + u16::from(value) + u16::from(carry);
+    let signed_result = i16::from(cpu.registers.acc as i8) + i16::from(value as i8) + i16::from(carry);
 
-    cpu.registers.set_z(result & 0xFF == 0);
+    cpu.registers.set_z(result.trailing_zeros() >= 8);
 
     if cpu.registers.get_d() {
-        let mut tmp = ((cpu.registers.acc & 0x0F) + (value & 0x0F) + carry) as u16;
+        let mut tmp = u16::from((cpu.registers.acc & 0x0F) + (value & 0x0F) + carry);
 
         if tmp > 0x09 {
             tmp += 0x06;
@@ -174,10 +175,10 @@ fn adc(cpu: &mut Cpu, value: u8) {
             carry = 0;
         }
 
-        tmp = (cpu.registers.acc as u16 & 0xF0) + (value as u16 & 0xF0) + ((carry as u16) << 4) + (tmp & 0x0F);
+        tmp = (u16::from(cpu.registers.acc) & 0xF0) + (u16::from(value) & 0xF0) + (u16::from(carry) << 4) + (tmp & 0x0F);
 
         cpu.registers.set_n(tmp & 0x80 != 0);
-        let v = !(cpu.registers.acc ^ value) & (cpu.registers.acc ^ tmp as u8) & 0x80;
+        let v = !(cpu.registers.acc ^ value) & (cpu.registers.acc ^ (tmp & 0xFF) as u8) & 0x80;
         cpu.registers.set_v(v != 0);
 
         if tmp > 0x9F {
@@ -194,19 +195,20 @@ fn adc(cpu: &mut Cpu, value: u8) {
         cpu.registers.set_v(!(-128..=127).contains(&signed_result));
     }
 
-    cpu.registers.acc = result as u8;
+    cpu.registers.acc = (result & 0xFF) as u8;
 }
 
+#[allow(clippy::cast_possible_wrap)]
 fn sbc(cpu: &mut Cpu, value: u8) {
-    let mut carry = cpu.registers.get_c() as u8;
+    let mut carry = u8::from(cpu.registers.get_c());
 
-    let mut result = cpu.registers.acc as u16 + value as u16 + carry as u16;
-    let signed_result = (cpu.registers.acc as i8) as i16 + (value as i8) as i16 + carry as i16;
+    let mut result = u16::from(cpu.registers.acc) + u16::from(value) + u16::from(carry);
+    let signed_result = i16::from(cpu.registers.acc as i8) + i16::from(value as i8) + i16::from(carry);
 
-    cpu.registers.set_z(result & 0xFF == 0);
+    cpu.registers.set_z(result.trailing_zeros() >= 8);
 
     if cpu.registers.get_d() {
-        let mut tmp = ((cpu.registers.acc & 0x0F) + (value & 0x0F) + carry) as u16;
+        let mut tmp = u16::from((cpu.registers.acc & 0x0F) + (value & 0x0F) + carry);
 
         if tmp <= 0x0f {
             tmp = tmp.wrapping_sub(0x6);
@@ -217,10 +219,10 @@ fn sbc(cpu: &mut Cpu, value: u8) {
             carry = 1;
         }
 
-        tmp = (cpu.registers.acc as u16 & 0xF0) + (value as u16 & 0xF0) + ((carry as u16) << 4) + (tmp & 0x0F);
+        tmp = (u16::from(cpu.registers.acc) & 0xF0) + (u16::from(value) & 0xF0) + (u16::from(carry) << 4) + (tmp & 0x0F);
 
         cpu.registers.set_n(tmp & 0x80 != 0);
-        let v = !(cpu.registers.acc ^ value) & (cpu.registers.acc ^ tmp as u8) & 0x80;
+        let v = !(cpu.registers.acc ^ value) & (cpu.registers.acc ^ (tmp & 0xFF) as u8) & 0x80;
         cpu.registers.set_v(v != 0);
 
         if tmp <= 0xFF {
@@ -237,7 +239,7 @@ fn sbc(cpu: &mut Cpu, value: u8) {
         cpu.registers.set_n(result & 0x80 != 0);
     }
 
-    cpu.registers.acc = result as u8;
+    cpu.registers.acc = (result & 0xFF) as u8;
 }
 
 fn lda(cpu: &mut Cpu, value: u8) {
@@ -305,18 +307,19 @@ fn inc(cpu: &mut Cpu, address: u16) {
     cpu.registers.set_n(result >> 7 == 1);
 }
 
+#[allow(clippy::cast_possible_wrap)]
 pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     [|cpu| {
         /* 0x00 */
         /* BRK */
         let _ = cpu.fetch_byte();
         cpu.push_stack((cpu.registers.pc >> 8) as u8);
-        cpu.push_stack(cpu.registers.pc as u8);
+        cpu.push_stack((cpu.registers.pc & 0xFF) as u8);
         cpu.push_stack(cpu.registers.p | 0b0001_0000);
         cpu.registers.set_i(true);
         let low_value = cpu.read_byte(0xFFFE);
         let high_value = cpu.read_byte(0xFFFE + 1);
-        let value = (high_value as u16) << 8 | low_value as u16;
+        let value = u16::from(high_value) << 8 | u16::from(low_value);
         cpu.registers.pc = value;
     },
     |cpu| {
@@ -399,7 +402,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x10 */
         /* BPL */
-        let nn = cpu.fetch_byte() as i8 as i16;
+        let nn = i16::from(cpu.fetch_byte() as i8);
         if !cpu.registers.get_n() {
             branch(cpu, nn);
         }
@@ -478,11 +481,11 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         /* 0x20 */
         /* JSR nnnn */
         let low_value = cpu.fetch_byte();
-        let _ = cpu.read_byte(0x100 + cpu.registers.sp as u16);
+        let _ = cpu.read_byte(0x100 + u16::from(cpu.registers.sp));
         cpu.push_stack((cpu.registers.pc >> 8) as u8);
-        cpu.push_stack(cpu.registers.pc as u8);
+        cpu.push_stack((cpu.registers.pc & 0xFF) as u8);
         let high_value = cpu.read_byte(cpu.registers.pc);
-        cpu.registers.pc = (high_value as u16) << 8 | low_value as u16;
+        cpu.registers.pc = u16::from(high_value) << 8 | u16::from(low_value);
     },
     |cpu| {
         /* 0x21 */
@@ -528,7 +531,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         /* 0x28 */
         /* PLP */
         let _ = cpu.read_byte(cpu.registers.pc);
-        let _ = cpu.read_byte(0x100 + cpu.registers.sp as u16);
+        let _ = cpu.read_byte(0x100 + u16::from(cpu.registers.sp));
         cpu.registers.p = (cpu.pull_stack() | 0b0010_0000) & 0b1110_1111;
     },
     |cpu| {
@@ -542,7 +545,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         /* ROL A */
         let _ = cpu.read_byte(cpu.registers.pc);
         let old_value = cpu.registers.acc;
-        let low_value = cpu.registers.get_c() as u8;
+        let low_value = u8::from(cpu.registers.get_c());
         cpu.registers.acc = (old_value << 1) | low_value;
 
         cpu.registers.set_c(old_value >> 7 == 1);
@@ -582,7 +585,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x30 */
         /* BMI */
-        let nn = cpu.fetch_byte() as i8 as i16;
+        let nn = i16::from(cpu.fetch_byte() as i8);
         if cpu.registers.get_n() {
             branch(cpu, nn);
         }
@@ -661,10 +664,10 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         /* 0x40 */
         /* RTI */
         let _ = cpu.read_byte(cpu.registers.pc);
-        let _ = cpu.read_byte(0x100 + cpu.registers.sp as u16);
+        let _ = cpu.read_byte(0x100 + u16::from(cpu.registers.sp));
         cpu.registers.p = (cpu.pull_stack() | 0b0010_0000) & 0b1110_1111;
-        let low_value = cpu.pull_stack() as u16;
-        let high_value = cpu.pull_stack() as u16;
+        let low_value = u16::from(cpu.pull_stack());
+        let high_value = u16::from(cpu.pull_stack());
         let value = high_value << 8 | low_value;
         cpu.registers.pc = value;
     },
@@ -751,7 +754,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x50 */
         /* BVC */
-        let nn = cpu.fetch_byte() as i8 as i16;
+        let nn = i16::from(cpu.fetch_byte() as i8);
         if !cpu.registers.get_v() {
             branch(cpu, nn);
         }
@@ -830,10 +833,10 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         /* 0x60 */
         /* RTS */
         let _ = cpu.read_byte(cpu.registers.pc);
-        let _ = cpu.read_byte(0x100 + cpu.registers.sp as u16);
+        let _ = cpu.read_byte(0x100 + u16::from(cpu.registers.sp));
         let low_address = cpu.pull_stack();
         let high_address = cpu.pull_stack();
-        let new_pc = (high_address as u16) << 8 | low_address as u16;
+        let new_pc = u16::from(high_address) << 8 | u16::from(low_address);
         let _ = cpu.read_byte(new_pc);
         cpu.registers.pc = new_pc + 1;
     },
@@ -873,7 +876,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         /* 0x68 */
         /* PLA */
         let _ = cpu.read_byte(cpu.registers.pc);
-        let _ = cpu.read_byte(0x100 + cpu.registers.sp as u16);
+        let _ = cpu.read_byte(0x100 + u16::from(cpu.registers.sp));
         cpu.registers.acc = cpu.pull_stack();
 
         cpu.registers.set_z(cpu.registers.acc == 0);
@@ -890,7 +893,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         /* ROR A */
         let _ = cpu.read_byte(cpu.registers.pc);
         let old_value = cpu.registers.acc;
-        let high_value = cpu.registers.get_c() as u8;
+        let high_value = u8::from(cpu.registers.get_c());
         cpu.registers.acc = (high_value << 7) | (old_value >> 1);
 
         cpu.registers.set_c(old_value & 0b0000_0001 == 1);
@@ -905,10 +908,10 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         /* JMP (nnnn) */
         let low_nn = cpu.fetch_byte();
         let high_nn = cpu.fetch_byte();
-        let address = (high_nn as u16) << 8 | low_nn as u16;
+        let address = u16::from(high_nn) << 8 | u16::from(low_nn);
         let low_value = cpu.read_byte(address);
         let high_value = cpu.read_byte((address & 0xFF00) + ((address.wrapping_add(1)) & 0xFF));
-        cpu.registers.pc = (high_value as u16) << 8 | low_value as u16;
+        cpu.registers.pc = u16::from(high_value) << 8 | u16::from(low_value);
     },
     |cpu| {
         /* 0x6D */
@@ -929,7 +932,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x70 */
         /* BVS */
-        let nn = cpu.fetch_byte() as i8 as i16;
+        let nn = i16::from(cpu.fetch_byte() as i8);
         if cpu.registers.get_v() {
             branch(cpu, nn);
         }
@@ -1088,7 +1091,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x90 */
         /* BCC */
-        let nn = cpu.fetch_byte() as i8 as i16;
+        let nn = i16::from(cpu.fetch_byte() as i8);
         if !cpu.registers.get_c() {
             branch(cpu, nn);
         }
@@ -1265,7 +1268,8 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0xB0 */
         /* BCS */
-        let nn = cpu.fetch_byte() as i8 as i16;
+        #[allow(clippy::cast_possible_wrap)]
+        let nn = i16::from(cpu.fetch_byte() as i8);
         if cpu.registers.get_c() {
             branch(cpu, nn);
         }
@@ -1451,7 +1455,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0xD0 */
         /* BNE */
-        let nn = cpu.fetch_byte() as i8 as i16;
+        let nn = i16::from(cpu.fetch_byte() as i8);
         if !cpu.registers.get_z() {
             branch(cpu, nn);
         }
@@ -1617,7 +1621,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0xF0 */
         /* BEQ */
-        let nn = cpu.fetch_byte() as i8 as i16;
+        let nn = i16::from(cpu.fetch_byte() as i8);
         if cpu.registers.get_z() {
             branch(cpu, nn);
         }

@@ -18,8 +18,8 @@ macro_rules! generate_opcode_tests {
 
 #[cfg(feature = "test-utils")]
 fn opcode_test(opcode: u8, cycles_enabled: bool) {
-    let filename = format!("resources/cpu/{:02x}.json", opcode);
-    let file = File::open(&filename).unwrap_or_else(|_| panic!("Expected {}", filename));
+    let filename = format!("resources/cpu/{opcode:02x}.json");
+    let file = File::open(&filename).unwrap_or_else(|_| panic!("Expected {filename}"));
     let json: serde_json::Value = from_reader(file).expect("File should be a json");
 
     for test in json.as_array().unwrap() {
@@ -41,7 +41,7 @@ fn opcode_test(opcode: u8, cycles_enabled: bool) {
         if !equal {
             eprintln!("Test \"{}\" with differences:", test.get("name").unwrap().as_str().unwrap());
             for diff in differences {
-                eprintln!("  - {}", diff);
+                eprintln!("  - {diff}");
             }
         }
 
