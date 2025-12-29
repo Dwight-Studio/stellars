@@ -78,12 +78,26 @@ impl Cpu {
         self.cycles_info.push((address, value, "write".to_string()));
     }
 
+    #[cfg(not(feature = "test-utils"))]
     fn pull_stack(&mut self) -> u8 {
         self.registers.sp = self.registers.sp.wrapping_add(1);
         self.cycles += 1;
         let address = 0x100 + self.registers.sp as u16;
 
         self.bus.as_ref().unwrap().upgrade().unwrap().read().unwrap().read_byte(address)
+    }
+
+    #[cfg(feature = "test-utils")]
+    fn pull_stack(&mut self) -> u8 {
+        self.registers.sp = self.registers.sp.wrapping_add(1);
+        self.cycles += 1;
+        let address = 0x100 + self.registers.sp as u16;
+
+        let data = self.bus.as_ref().unwrap().upgrade().unwrap().read().unwrap().read_byte(address);
+
+        self.cycles_info.push((address, data, "read".to_string()));
+
+        data
     }
 
     #[cfg(not(feature = "test-utils"))]
