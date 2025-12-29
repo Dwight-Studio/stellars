@@ -305,7 +305,6 @@ fn inc(cpu: &mut Cpu, address: u16) {
     cpu.registers.set_n(result >> 7 == 1);
 }
 
-//todo: refactor all this & verify cpu cycles
 pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     [|cpu| {
         /* 0x00 */
