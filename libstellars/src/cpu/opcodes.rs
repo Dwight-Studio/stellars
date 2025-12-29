@@ -2,6 +2,7 @@ use crate::cpu::Cpu;
 
 fn indirect_x(cpu: &mut Cpu) -> u16 {
     let nn = cpu.fetch_byte();
+    let _ = cpu.read_byte(nn as u16);
     let low_address = cpu.read_byte(nn.wrapping_add(cpu.registers.x) as u16);
     let high_address = cpu.read_byte(nn.wrapping_add(cpu.registers.x).wrapping_add(1) as u16);
     (high_address as u16) << 8 | low_address as u16
@@ -55,7 +56,6 @@ fn ora(cpu: &mut Cpu, value: u8) {
 
     cpu.registers.set_z(cpu.registers.acc == 0);
     cpu.registers.set_n(cpu.registers.acc >> 7 == 1);
-    cpu.cycles += 1;
 }
 
 fn and(cpu: &mut Cpu, value: u8) {

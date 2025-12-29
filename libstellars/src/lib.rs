@@ -124,7 +124,7 @@ impl Stellar {
     }
 
     #[cfg(feature = "test-utils")]
-    pub fn check_final_state(&self, state: &Map<String, Value>) -> (bool, Vec<String>) {
+    pub fn check_final_state(&self, state: &Map<String, Value>, cycles_value: Option<&Vec<Value>>) -> (bool, Vec<String>) {
         let mut differences = Vec::new();
         let mut flag;
 
@@ -140,6 +140,42 @@ impl Stellar {
             if actual != expected {
                 differences.push(format!("RAM[0x{:04X}]: expected 0x{:02X}, got 0x{:02X}", address, expected, actual));
                 flag = false;
+            }
+        }
+
+        if let Some(cycles_values) = cycles_value {
+            let cycles_info = &self.cpu.read().unwrap().cycles_info;
+
+            for (expected, received) in cycles_values.iter().zip(cycles_info.iter()) {
+                let cycle = expected.as_array().unwrap();
+                let expected_address = cycle.first().unwrap().as_u64().unwrap() as u16;
+                let expected_value = cycle.get(1).unwrap().as_u64().unwrap() as u8;
+                let expected_mode = cycle.get(2).unwrap().as_str().unwrap();
+
+                let (received_address, received_value, received_mode) = received;
+
+                if expected_address != *received_address {
+                    differences.push(format!("Cycle address: expected 0x{:04X}, got 0x{:04X}", expected_address, received_address));
+                    flag = false;
+                }
+                if expected_value != *received_value {
+                    differences.push(format!("Cycle value: expected 0x{:02X}, got 0x{:02X}", expected_value, received_value));
+                    flag = false;
+                }
+                if expected_mode != *received_mode {
+                    differences.push(format!("Cycle mode: expected {}, got {}", expected_mode, received_mode));
+                    flag = false;
+                }
+            }
+
+            if cycles_info.len() != cycles_values.len() {
+                differences.push(format!("Cycle length: expected {}, got {}", cycles_values.len(), cycles_info.len()));
+                flag = false;
+            }
+
+            if !flag {
+                eprintln!("expected: {:?}", cycles_values);
+                eprintln!("received: {:?}", cycles_info);
             }
         }
 

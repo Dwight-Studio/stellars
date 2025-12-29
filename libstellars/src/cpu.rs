@@ -6,6 +6,7 @@ use crate::Stellar;
 use serde_json::{Map, Value};
 use std::sync::{RwLock, Weak};
 
+#[cfg(not(feature = "test-utils"))]
 pub struct Cpu {
     pub(crate) bus: Option<Weak<RwLock<Stellar>>>,
     
@@ -13,13 +14,34 @@ pub struct Cpu {
     cycles: u64,
 }
 
+#[cfg(feature = "test-utils")]
+pub struct Cpu {
+    pub(crate) bus: Option<Weak<RwLock<Stellar>>>,
+
+    registers: Registers,
+    cycles: u64,
+    pub(crate) cycles_info: Vec<(u16, u8, String)>
+}
+
 impl Cpu {
+    #[cfg(not(feature = "test-utils"))]
     pub fn new() -> Self {
         Cpu {
             bus: None,
             
             registers: Registers::new(),
             cycles: 0,
+        }
+    }
+
+    #[cfg(feature = "test-utils")]
+    pub fn new() -> Self {
+        Cpu {
+            bus: None,
+
+            registers: Registers::new(),
+            cycles: 0,
+            cycles_info: Vec::new()
         }
     }
 
@@ -52,6 +74,7 @@ impl Cpu {
         self.bus.as_ref().unwrap().upgrade().unwrap().read().unwrap().read_byte(address)
     }
 
+    #[cfg(not(feature = "test-utils"))]
     fn fetch_byte(&mut self) -> u8 {
         let data = self.bus.as_ref().unwrap().upgrade().unwrap().read().unwrap().read_byte(self.registers.pc);
         self.registers.pc = self.registers.pc.wrapping_add(1);
@@ -60,10 +83,34 @@ impl Cpu {
         data
     }
 
+    #[cfg(feature = "test-utils")]
+    fn fetch_byte(&mut self) -> u8 {
+        let data = self.bus.as_ref().unwrap().upgrade().unwrap().read().unwrap().read_byte(self.registers.pc);
+
+        self.cycles_info.push((self.registers.pc, data, "read".to_string()));
+
+        self.registers.pc = self.registers.pc.wrapping_add(1);
+        self.cycles += 1;
+
+        data
+    }
+
+    #[cfg(not(feature = "test-utils"))]
     fn read_byte(&mut self, address: u16) -> u8 {
         self.cycles += 1;
 
         self.bus.as_ref().unwrap().upgrade().unwrap().read().unwrap().read_byte(address)
+    }
+
+    #[cfg(feature = "test-utils")]
+    fn read_byte(&mut self, address: u16) -> u8 {
+        self.cycles += 1;
+
+        let data = self.bus.as_ref().unwrap().upgrade().unwrap().read().unwrap().read_byte(address);
+
+        self.cycles_info.push((address, data, "read".to_string()));
+
+        data
     }
 
     fn write_byte(&mut self, address: u16, value: u8) {
