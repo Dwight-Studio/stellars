@@ -100,8 +100,6 @@ impl Stellar {
             self.memory.write().unwrap().ram[(address - 0x80) as usize] = value;
         } else if (0x0100..=0x01FF).contains(&address) {
             self.memory.write().unwrap().stack[(address - 0x100) as usize] = value;
-        } else {
-            todo!("Logging: warn: Writing at unknown address")
         }
     }
 

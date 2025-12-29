@@ -8,7 +8,12 @@ use std::sync::{RwLock, Weak};
 pub enum WriteFunctions {
     Vsync = 0x00,
     Wsync = 0x02,
+    Colupf = 0x08,
     Colubk = 0x09,
+    CTRLPF = 0x0A,
+    PF0 = 0x0D,
+    PF1 = 0x0E,
+    PF2 = 0x0F,
 }
 #[repr(u8)]
 pub enum ReadFunctions {
@@ -27,6 +32,7 @@ pub struct Tia {
     pic_y: u8,
     wsync_enabled: bool,
     vblank: (bool, u16),
+    pf_pixels_per_bit: u8,
 }
 
 impl Tia {
@@ -42,6 +48,7 @@ impl Tia {
             pic_y: 0x0000,
             wsync_enabled: false,
             vblank: (true, 0),
+            pf_pixels_per_bit: (SCREEN_WIDTH as u8 / 2) / 20,
             pic_buffer: [Color { r: 0x00, g: 0x00, b: 0x00 }; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize],
         }
     }
@@ -68,6 +75,8 @@ impl Tia {
                 break;
             }
 
+            // VBLANK has been implemented like that because some ROMS didn't use the VBLANK function
+            // of the TIA.
             if (self.vblank.0) {
                 loop {
                     self.vblank.1 += 1;
@@ -93,7 +102,15 @@ impl Tia {
                 }
 
                 if self.pic_x >= 68 {
-                    self.pic_buffer[self.pic_y as usize * SCREEN_WIDTH as usize + (self.pic_x as usize - 68)] = NTSC_COLORS[self.get_write_function(WriteFunctions::Colubk) as usize];
+                    let rel_pic_x = self.pic_x - 68;
+                    let pf_register = ((self.get_write_function(WriteFunctions::PF0) as u32) >> 4) << 12 | (self.get_write_function(WriteFunctions::PF1) as u32) << 8 | self.get_write_function(WriteFunctions::PF2) as u32;
+
+                    // TODO: Implement Playfield Reflection
+                    if self.get_write_function(WriteFunctions::CTRLPF) & 0x1 == 0 && (pf_register >> (19 - (rel_pic_x % (SCREEN_WIDTH as u8 / 2)) / self.pf_pixels_per_bit)) & 0x1 == 1 {
+                        self.pic_buffer[self.pic_y as usize * SCREEN_WIDTH as usize + (self.pic_x as usize - 68)] = NTSC_COLORS[self.get_write_function(WriteFunctions::Colupf) as usize];
+                    } else {
+                        self.pic_buffer[self.pic_y as usize * SCREEN_WIDTH as usize + (self.pic_x as usize - 68)] = NTSC_COLORS[self.get_write_function(WriteFunctions::Colubk) as usize];
+                    }
                 }
 
                 self.pic_x += 1;
