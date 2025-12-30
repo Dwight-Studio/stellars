@@ -11,7 +11,7 @@ pub struct StellarsRender {
     render_buffer: Pixels<'static>,
     picture_buffer: Arc<RwLock<[Color; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize]>>,
     scale_factor: (u32, u32),
-    target_framerate: u64,
+    target_framerate: f64,
 
     libstellars: Arc<RwLock<Stellar>>,
 }
@@ -41,14 +41,14 @@ impl StellarsRender {
             render_buffer: pixels,
             picture_buffer: Arc::new(RwLock::new([Color { r: 0x00, g: 0x00, b: 0x00 }; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize])),
             scale_factor,
-            target_framerate: 60,
+            target_framerate: 60.0,
 
             libstellars
         }
     }
 
     pub fn run(&mut self) {
-        self.libstellars.read().unwrap().load_rom(PathBuf::from("./stellars-gui/resources/kernel_15.bin"));
+        self.libstellars.read().unwrap().load_rom(PathBuf::from("./stellars-gui/resources/kernel_13.bin"));
 
         let stellars = self.libstellars.clone();
         let picture_buffer = self.picture_buffer.clone();
@@ -56,7 +56,7 @@ impl StellarsRender {
         let target_framerate = self.target_framerate;
 
         std::thread::spawn(move || {
-            let frame_duration = Duration::from_nanos((1 / target_framerate) * 100000000);
+            let frame_duration = Duration::from_secs_f64(1.0 / target_framerate);
             let mut frame_start = Instant::now();
 
             loop {
