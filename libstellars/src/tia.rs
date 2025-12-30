@@ -8,12 +8,14 @@ use std::sync::{RwLock, Weak};
 pub enum WriteFunctions {
     Vsync = 0x00,
     Wsync = 0x02,
+    Colup0 = 0x06,
+    Colup1 = 0x07,
     Colupf = 0x08,
     Colubk = 0x09,
-    CTRLPF = 0x0A,
-    PF0 = 0x0D,
-    PF1 = 0x0E,
-    PF2 = 0x0F,
+    Ctrlpf = 0x0A,
+    Pf0 = 0x0D,
+    Pf1 = 0x0E,
+    Pf2 = 0x0F,
 }
 #[repr(u8)]
 pub enum ReadFunctions {
@@ -75,16 +77,16 @@ impl Tia {
                 break;
             }
 
-            // VBLANK has been implemented like that because some ROMS didn't use the VBLANK function
-            // of the TIA.
-            if (self.vblank.0) {
+            /* VBLANK has been implemented like that because some ROMS didn't use the VBLANK function
+               of the TIA. */
+            if self.vblank.0 {
                 loop {
                     self.vblank.1 += 1;
 
                     if self.vblank.1 >= 37 * 228 { self.vblank.0 = false; }
                     if self.vblank.1.is_multiple_of(228) { self.wsync_enabled = false; }
 
-                    if (!self.wsync_enabled) { break; }
+                    if !self.wsync_enabled { break; }
                 }
                 break;
             }
@@ -103,12 +105,20 @@ impl Tia {
 
                 if self.pic_x >= 68 {
                     let rel_pic_x = self.pic_x - 68;
-                    let pf_register = ((self.get_write_function(WriteFunctions::PF0) as u32) >> 4) << 16 | (self.get_write_function(WriteFunctions::PF1) as u32) << 8 | self.get_write_function(WriteFunctions::PF2) as u32;
+                    let pf_register = (self.get_write_function(WriteFunctions::Pf0).reverse_bits() as u32) << 16 | (self.get_write_function(WriteFunctions::Pf1) as u32) << 8 | (self.get_write_function(WriteFunctions::Pf2).reverse_bits() as u32);
 
-                    if (rel_pic_x < SCREEN_WIDTH as u8 / 2 && (pf_register >> (19 - rel_pic_x / self.pf_pixels_per_bit)) & 0x1 == 1) ||
-                        (rel_pic_x >= SCREEN_WIDTH as u8 / 2 && self.get_write_function(WriteFunctions::CTRLPF) & 0x1 == 0 && (pf_register >> (19 - (rel_pic_x % (SCREEN_WIDTH as u8 / 2)) / self.pf_pixels_per_bit)) & 0x1 == 1) ||
-                        (rel_pic_x >= SCREEN_WIDTH as u8 / 2 && self.get_write_function(WriteFunctions::CTRLPF) & 0x1 == 1 && (pf_register >> ((rel_pic_x % (SCREEN_WIDTH as u8 / 2)) / self.pf_pixels_per_bit)) & 0x1 == 1) {
-                        self.pic_buffer[self.pic_y as usize * SCREEN_WIDTH as usize + (self.pic_x as usize - 68)] = NTSC_COLORS[self.get_write_function(WriteFunctions::Colupf) as usize];
+                    // TODO: Bit 3 of Ctrlpf is nt handle for now because of the lack of a sprite implementation
+                //           Bit 4 and 5 controls the ball size
+                    // TODO: There might be a better way to do the following condition
+                    if (rel_pic_x < SCREEN_WIDTH as u8 / 2 && (pf_register >> (19 - rel_pic_x / self.pf_pixels_per_bit)) & 0x1 == 1) || // If in first half of screen draw PF pixels as is
+                        (rel_pic_x >= SCREEN_WIDTH as u8 / 2 && self.get_write_function(WriteFunctions::Ctrlpf) & 0x1 == 0 && (pf_register >> (19 - (rel_pic_x % (SCREEN_WIDTH as u8 / 2)) / self.pf_pixels_per_bit)) & 0x1 == 1) || // If in second half of screen and in Duplication mode draw the exact same thing as the first half of screen
+                        (rel_pic_x >= SCREEN_WIDTH as u8 / 2 && self.get_write_function(WriteFunctions::Ctrlpf) & 0x1 == 1 && (pf_register >> ((rel_pic_x % (SCREEN_WIDTH as u8 / 2)) / self.pf_pixels_per_bit)) & 0x1 == 1) { // If in second half of screen and in Reflection mode, draw the mirrored version of the first half of screen
+
+                        let mut color: WriteFunctions = WriteFunctions::Colupf;
+                        if self.get_write_function(WriteFunctions::Ctrlpf) >> 1 & 0x1 == 1 {
+                            color = if rel_pic_x < SCREEN_WIDTH as u8 / 2 { WriteFunctions::Colup0 } else { WriteFunctions::Colup1 };
+                        }
+                        self.pic_buffer[self.pic_y as usize * SCREEN_WIDTH as usize + (self.pic_x as usize - 68)] = NTSC_COLORS[self.get_write_function(color) as usize];
                     } else {
                         self.pic_buffer[self.pic_y as usize * SCREEN_WIDTH as usize + (self.pic_x as usize - 68)] = NTSC_COLORS[self.get_write_function(WriteFunctions::Colubk) as usize];
                     }

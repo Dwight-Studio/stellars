@@ -81,7 +81,8 @@ impl Stellar {
         } else if address >= 0xF000 {
             data = self.memory.read().unwrap().game_rom[(address - 0xF000) as usize]
         } else {
-            todo!("Logging: warn: Reading at unknown address")
+            data = 0x00;
+            // TODO: Reading at unknown address
         }
 
         data
