@@ -25,6 +25,8 @@ pub struct Stellar {
     pub(crate) memory: Arc<RwLock<Memory>>,
     tia: Arc<RwLock<Tia>>,
     cpu: Arc<RwLock<Cpu>>,
+    
+    frame_ready: bool,
 }
 
 impl Stellar {
@@ -33,6 +35,8 @@ impl Stellar {
             memory: Arc::new(RwLock::new(Memory::new())),
             tia: Arc::new(RwLock::new(Tia::new())),
             cpu: Arc::new(RwLock::new(Cpu::new())),
+            
+            frame_ready: false,
         }));
 
         bus.read().unwrap().tia.write().unwrap().bus = Some(Arc::downgrade(&bus));
@@ -47,9 +51,9 @@ impl Stellar {
         }
     }
 
-    pub fn get_picture_buffer(&self) -> Option<[Color; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize]> {
-        if self.tia.read().unwrap().frame_ready {
-            self.tia.write().unwrap().frame_ready = false;
+    pub fn get_picture_buffer(&mut self) -> Option<[Color; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize]> {
+        if self.frame_ready {
+            self.frame_ready = false;
             Some(self.tia.read().unwrap().pic_buffer)
         } else {
             None

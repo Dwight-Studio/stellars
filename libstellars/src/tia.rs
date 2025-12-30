@@ -24,7 +24,6 @@ pub enum ReadFunctions {
 
 pub struct Tia {
     pub(crate) bus: Option<Weak<RwLock<Stellar>>>,
-    pub(crate) frame_ready: bool,
     pub(crate) pic_buffer: [Color; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize],
 
     write_functions: [u8; 0x2D],
@@ -41,7 +40,6 @@ impl Tia {
     pub fn new() -> Tia {
         Self {
             bus: None,
-            frame_ready: false,
 
             write_functions: [0x00; 0x2D],
             read_functions: [0; 0x0E],
@@ -99,7 +97,6 @@ impl Tia {
                 }
 
                 if self.pic_y >= 192 {
-                    self.frame_ready = true;
                     break;
                 }
 

@@ -52,6 +52,11 @@ impl Cpu {
         OPCODES[opcode as usize](self);
 
         self.bus.as_ref().unwrap().upgrade().unwrap().read().unwrap().tick(self.cycles - old_cycles);
+
+        if self.cycles >= 19_912 {
+            self.cycles -= 19_912;
+            self.bus.as_ref().unwrap().upgrade().unwrap().write().unwrap().frame_ready = true;
+        }
     }
 
     pub(crate) fn init_pc(&mut self, pc: u16) {
