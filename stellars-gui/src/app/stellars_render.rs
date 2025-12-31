@@ -1,5 +1,4 @@
 use std::path::PathBuf;
-use std::process::exit;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
 use pixels::{wgpu, Pixels, PixelsBuilder, SurfaceTexture};
@@ -63,7 +62,7 @@ impl StellarsRender {
             loop {
                 stellars.read().unwrap().execute();
 
-                if let Some(pic_buff) = stellars.write().unwrap().get_picture_buffer() {
+                if let Some(pic_buff) = stellars.read().unwrap().get_picture_buffer() {
                     picture_buffer.write().unwrap().copy_from_slice(pic_buff.as_slice());
                     window.request_redraw();
 

@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
+use std::sync::atomic::{AtomicBool, Ordering};
 use serde_json::{Map, Value};
 use crate::memory::Memory;
 use crate::cpu::Cpu;
@@ -26,7 +27,7 @@ pub struct Stellar {
     tia: Arc<RwLock<Tia>>,
     cpu: Arc<RwLock<Cpu>>,
     
-    frame_ready: bool,
+    frame_ready: AtomicBool,
 }
 
 impl Stellar {
@@ -36,7 +37,7 @@ impl Stellar {
             tia: Arc::new(RwLock::new(Tia::new())),
             cpu: Arc::new(RwLock::new(Cpu::new())),
             
-            frame_ready: false,
+            frame_ready: AtomicBool::new(false),
         }));
 
         bus.read().unwrap().tia.write().unwrap().bus = Some(Arc::downgrade(&bus));
@@ -51,9 +52,9 @@ impl Stellar {
         }
     }
 
-    pub fn get_picture_buffer(&mut self) -> Option<[Color; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize]> {
-        if self.frame_ready {
-            self.frame_ready = false;
+    pub fn get_picture_buffer(&self) -> Option<[Color; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize]> {
+        if self.frame_ready.load(Ordering::Relaxed) {
+            self.frame_ready.store(false, Ordering::Relaxed);
             Some(self.tia.read().unwrap().pic_buffer)
         } else {
             None
