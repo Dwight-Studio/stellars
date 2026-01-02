@@ -5,7 +5,6 @@ use crate::registers::Registers;
 use crate::Stellar;
 use serde_json::{Map, Value};
 use std::sync::{RwLock, Weak};
-use std::sync::atomic::Ordering;
 
 #[cfg(not(feature = "test-utils"))]
 pub struct Cpu {
@@ -53,11 +52,6 @@ impl Cpu {
         OPCODES[opcode as usize](self);
 
         self.bus.as_ref().unwrap().upgrade().unwrap().read().unwrap().tick(self.cycles - old_cycles);
-
-        if self.cycles >= 19_912 {
-            self.cycles -= 19_912;
-            self.bus.as_ref().unwrap().upgrade().unwrap().read().unwrap().frame_ready.store(true, Ordering::Relaxed);
-        }
     }
 
     pub(crate) fn init_pc(&mut self, pc: u16) {

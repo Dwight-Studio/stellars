@@ -3,6 +3,7 @@ mod colors;
 use crate::tia::colors::NTSC_COLORS;
 use crate::{Color, Stellar, SCREEN_HEIGHT, SCREEN_WIDTH};
 use std::sync::{RwLock, Weak};
+use std::sync::atomic::Ordering;
 
 #[repr(u8)]
 pub enum WriteFunctions {
@@ -34,6 +35,7 @@ pub struct Tia {
     wsync_enabled: bool,
     vblank: (bool, u16),
     pf_pixels_per_bit: u8,
+    clock_count: u64,
 }
 
 impl Tia {
@@ -50,6 +52,7 @@ impl Tia {
             vblank: (true, 0),
             pf_pixels_per_bit: (SCREEN_WIDTH as u8 / 2) / 20,
             pic_buffer: [Color { r: 0x00, g: 0x00, b: 0x00 }; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize],
+            clock_count: 0,
         }
     }
 
@@ -72,6 +75,7 @@ impl Tia {
                 self.pic_y = 0x00;
                 self.wsync_enabled = false;
                 self.vblank = (true, 0);
+                self.clock_count = 684;
                 break;
             }
 
@@ -80,13 +84,14 @@ impl Tia {
             if self.vblank.0 {
                 loop {
                     self.vblank.1 += 1;
+                    self.clock_count += 1;
 
                     if self.vblank.1 >= 37 * 228 { self.vblank.0 = false; }
                     if self.vblank.1.is_multiple_of(228) { self.wsync_enabled = false; }
 
                     if !self.wsync_enabled { break; }
                 }
-                break;
+                continue;
             }
 
             loop {
@@ -96,11 +101,7 @@ impl Tia {
                     self.wsync_enabled = false;
                 }
 
-                if self.pic_y >= 192 {
-                    break;
-                }
-
-                if self.pic_x >= 68 {
+                if self.pic_x >= 68 && self.pic_y < 192 {
                     let rel_pic_x = self.pic_x - 68;
                     let pf_register = (self.get_write_function(WriteFunctions::Pf0).reverse_bits() as u32) << 16 | (self.get_write_function(WriteFunctions::Pf1) as u32) << 8 | (self.get_write_function(WriteFunctions::Pf2).reverse_bits() as u32);
 
@@ -122,9 +123,15 @@ impl Tia {
                 }
 
                 self.pic_x += 1;
+                self.clock_count += 1;
 
                 if !self.wsync_enabled { break; }
             }
+        }
+
+        if self.clock_count >= 59736 {
+            self.clock_count -= 59736;
+            self.bus.as_ref().unwrap().upgrade().unwrap().read().unwrap().frame_ready.store(true, Ordering::Relaxed);
         }
     }
 }
