@@ -96,7 +96,7 @@ impl Stellar {
             data = self.memory.read().unwrap().ram[(address - 0x80) as usize]
         } else if (0x0100..=0x01FF).contains(&address) {
             data = self.memory.read().unwrap().stack[(address - 0x100) as usize]
-        } else if address == 0x0280 || address == 0x003D {
+        } else if address == 0x0280 || address == 0x003C {
             data = self.controller.read().unwrap().read_inputs(address);
         } else if address >= 0xF000 {
             data = self.memory.read().unwrap().game_rom[(address - 0xF000) as usize]
