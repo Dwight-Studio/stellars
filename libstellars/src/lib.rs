@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicBool, Ordering};
 use serde_json::{Map, Value};
-use crate::controller::Controller;
+use crate::controller::{Controller, Joystick};
 use crate::memory::Memory;
 use crate::cpu::Cpu;
 use crate::tia::Tia;
@@ -12,7 +12,7 @@ mod cpu;
 mod registers;
 mod memory;
 mod tia;
-mod controller;
+pub mod controller;
 
 pub const SCREEN_WIDTH: u32 = 160;
 pub const SCREEN_HEIGHT: u32 = 192;
@@ -208,7 +208,7 @@ impl Stellar {
         self.cpu.write().unwrap().execute();
     }
 
-    pub fn update_inputs(&self, value: u8, pressed: bool, button: bool) {
-        self.controller.write().unwrap().update_inputs(value, pressed, button)
+    pub fn update_inputs(&self, input: Joystick, pressed: bool) {
+        self.controller.write().unwrap().update_inputs(input, pressed)
     }
 }

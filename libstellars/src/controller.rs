@@ -4,12 +4,21 @@ enum Functions {
     Swcha = 0x0280,
 }
 
+pub enum Joystick {
+    Right,
+    Left,
+    Up,
+    Down,
+    Button
+}
+
 pub struct Controller {
     swcha: u8,
     inpt4: u8,
 }
 
 impl Controller {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Controller {
             swcha: 0b1111_1111,
@@ -17,7 +26,27 @@ impl Controller {
         }
     }
 
-    pub fn update_inputs(&mut self, mask: u8, pressed: bool, button: bool) {
+
+    pub fn update_inputs(&mut self, input: Joystick, pressed: bool) {
+
+        let (mask, button) = match input {
+            Joystick::Right => {
+                (0b1000_0000, false)
+            }
+            Joystick::Left => {
+                (0b0100_0000, false)
+            }
+            Joystick::Up => {
+                (0b0001_0000, false)
+            }
+            Joystick::Down => {
+                (0b0010_0000, false)
+            }
+            Joystick::Button => {
+                (0b1000_0000, true)
+            }
+        };
+
         if button {
             if pressed {
                 self.inpt4 &= !mask;
