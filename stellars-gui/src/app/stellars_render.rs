@@ -1,10 +1,12 @@
+use libstellars::{Color, Stellar, SCREEN_HEIGHT, SCREEN_WIDTH};
+use pixels::{wgpu, Pixels, PixelsBuilder, SurfaceTexture};
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
-use pixels::{wgpu, Pixels, PixelsBuilder, SurfaceTexture};
 use winit::dpi::PhysicalSize;
+use winit::event::ElementState;
+use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::Window;
-use libstellars::{Color, Stellar, SCREEN_HEIGHT, SCREEN_WIDTH};
 
 pub struct StellarsRender {
     pub window: Arc<Window>,
@@ -48,7 +50,7 @@ impl StellarsRender {
     }
 
     pub fn run(&mut self) {
-        self.libstellars.read().unwrap().load_rom(PathBuf::from("./stellars-gui/resources/missile0.bin"));
+        self.libstellars.read().unwrap().load_rom(PathBuf::from("./stellars-gui/resources/kernel_13.bin"));
 
         let stellars = self.libstellars.clone();
         let picture_buffer = self.picture_buffer.clone();
@@ -111,5 +113,20 @@ impl StellarsRender {
         self.scale_factor = (self.window.inner_size().width / SCREEN_WIDTH, self.window.inner_size().height / SCREEN_HEIGHT);
         self.render_buffer.resize_surface(SCREEN_WIDTH * self.scale_factor.0, SCREEN_HEIGHT * self.scale_factor.1).unwrap();
         self.render_buffer.resize_buffer(SCREEN_WIDTH * self.scale_factor.0, SCREEN_HEIGHT * self.scale_factor.1).unwrap();
+    }
+
+    pub fn update_inputs(&mut self, keycode: PhysicalKey, state: ElementState) {
+        let pressed = state.is_pressed();
+
+        let (mask, button) = match keycode {
+            PhysicalKey::Code(KeyCode::ArrowRight) | PhysicalKey::Code(KeyCode::KeyD) => (0b1000_0000, false), // Right
+            PhysicalKey::Code(KeyCode::ArrowLeft) | PhysicalKey::Code(KeyCode::KeyA) => (0b0100_0000, false), // Left
+            PhysicalKey::Code(KeyCode::ArrowUp) | PhysicalKey::Code(KeyCode::KeyW) => (0b0001_0000, false), // Up
+            PhysicalKey::Code(KeyCode::ArrowDown) | PhysicalKey::Code(KeyCode::KeyS) => (0b0010_0000, false), // Down
+            PhysicalKey::Code(KeyCode::Enter) => (0b1000_0000, true), // Button
+            _ => return,
+        };
+
+        self.libstellars.read().unwrap().update_inputs(mask, pressed, button);
     }
 }

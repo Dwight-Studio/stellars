@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicBool, Ordering};
 use serde_json::{Map, Value};
+use crate::controller::Controller;
 use crate::memory::Memory;
 use crate::cpu::Cpu;
 use crate::tia::Tia;
@@ -11,6 +12,7 @@ mod cpu;
 mod registers;
 mod memory;
 mod tia;
+mod controller;
 
 pub const SCREEN_WIDTH: u32 = 160;
 pub const SCREEN_HEIGHT: u32 = 192;
@@ -26,6 +28,7 @@ pub struct Stellar {
     pub(crate) memory: Arc<RwLock<Memory>>,
     tia: Arc<RwLock<Tia>>,
     cpu: Arc<RwLock<Cpu>>,
+    controller: Arc<RwLock<Controller>>,
     
     frame_ready: AtomicBool,
 }
@@ -36,6 +39,7 @@ impl Stellar {
             memory: Arc::new(RwLock::new(Memory::new())),
             tia: Arc::new(RwLock::new(Tia::new())),
             cpu: Arc::new(RwLock::new(Cpu::new())),
+            controller: Arc::new(RwLock::new(Controller::new())),
             
             frame_ready: AtomicBool::new(false),
         }));
@@ -92,6 +96,8 @@ impl Stellar {
             data = self.memory.read().unwrap().ram[(address - 0x80) as usize]
         } else if (0x0100..=0x01FF).contains(&address) {
             data = self.memory.read().unwrap().stack[(address - 0x100) as usize]
+        } else if address == 0x0280 || address == 0x003D {
+            data = self.controller.read().unwrap().read_inputs(address);
         } else if address >= 0xF000 {
             data = self.memory.read().unwrap().game_rom[(address - 0xF000) as usize]
         } else {
@@ -200,5 +206,9 @@ impl Stellar {
     #[cfg(feature = "test-utils")]
     pub fn run_opcode(&self) {
         self.cpu.write().unwrap().execute();
+    }
+
+    pub fn update_inputs(&self, value: u8, pressed: bool, button: bool) {
+        self.controller.write().unwrap().update_inputs(value, pressed, button)
     }
 }

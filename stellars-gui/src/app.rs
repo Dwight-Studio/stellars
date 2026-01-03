@@ -52,6 +52,11 @@ impl ApplicationHandler for App {
                 event_loop.exit();
                 exit(0);
             }
+            WindowEvent::KeyboardInput {event,..} => {
+                let keycode = event.physical_key;
+                let pressed = event.state;
+                stellars_render.update_inputs(keycode, pressed);
+            }
             WindowEvent::RedrawRequested => {
                 stellars_render.render();
             }
