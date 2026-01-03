@@ -64,8 +64,17 @@ impl Stellar {
     #[cfg(not(feature = "test-utils"))]
     pub fn load_rom(&self, path: PathBuf) {
         match fs::read(path.clone()) {
-            Ok(data) => {
-                self.memory.write().unwrap().game_rom = data;
+            Ok(mut data) => {
+                let size = data.len();
+                if size == 4096 {
+                    self.memory.write().unwrap().game_rom = data;
+                } else if size == 2048 {
+                    data.reserve(2048);
+                    data.extend_from_within(0..2048);
+                    self.memory.write().unwrap().game_rom = data;
+                } else {
+                    panic!("Unknown rom size");
+                }
                 self.cpu.write().unwrap().init_pc(self.read_byte(0xFFFC) as u16 | ((self.read_byte(0xFFFD) as u16) << 8));
             }
             Err(err) => {eprintln!("Cannot open ROM {}: {err}", path.display())}
