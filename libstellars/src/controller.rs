@@ -4,6 +4,10 @@ enum Functions {
     Swcha = 0x0280,
 }
 
+pub enum Input {
+    Joystick(Joystick)
+}
+
 pub enum Joystick {
     Right,
     Left,
@@ -27,36 +31,29 @@ impl Controller {
     }
 
 
-    pub fn update_inputs(&mut self, input: Joystick, pressed: bool) {
+    pub fn update_inputs(&mut self, input: Input, pressed: bool) {
+        match input {
+            Input::Joystick(joystick) => {
+                let (mask, button) = match joystick {
+                    Joystick::Right => (0b1000_0000, false),
+                    Joystick::Left => (0b0100_0000, false),
+                    Joystick::Up => (0b0001_0000, false),
+                    Joystick::Down => (0b0010_0000, false),
+                    Joystick::Button => (0b1000_0000, true),
+                };
 
-        let (mask, button) = match input {
-            Joystick::Right => {
-                (0b1000_0000, false)
+                if button {
+                    if pressed {
+                        self.inpt4 &= !mask;
+                    } else {
+                        self.inpt4 |= mask;
+                    }
+                } else if pressed {
+                    self.swcha &= !mask;
+                } else {
+                    self.swcha |= mask;
+                }
             }
-            Joystick::Left => {
-                (0b0100_0000, false)
-            }
-            Joystick::Up => {
-                (0b0001_0000, false)
-            }
-            Joystick::Down => {
-                (0b0010_0000, false)
-            }
-            Joystick::Button => {
-                (0b1000_0000, true)
-            }
-        };
-
-        if button {
-            if pressed {
-                self.inpt4 &= !mask;
-            } else {
-                self.inpt4 |= mask;
-            }
-        } else if pressed {
-            self.swcha &= !mask;
-        } else {
-            self.swcha |= mask;
         }
     }
 

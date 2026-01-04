@@ -7,7 +7,7 @@ use winit::dpi::PhysicalSize;
 use winit::event::ElementState;
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::Window;
-use libstellars::controller::Joystick;
+use libstellars::controller::{Input, Joystick};
 
 pub struct StellarsRender {
     pub window: Arc<Window>,
@@ -120,11 +120,11 @@ impl StellarsRender {
         let pressed = state.is_pressed();
 
         let input = match keycode {
-            PhysicalKey::Code(KeyCode::ArrowRight) | PhysicalKey::Code(KeyCode::KeyD) => Joystick::Right, // Right
-            PhysicalKey::Code(KeyCode::ArrowLeft) | PhysicalKey::Code(KeyCode::KeyA) => Joystick::Left, // Left
-            PhysicalKey::Code(KeyCode::ArrowUp) | PhysicalKey::Code(KeyCode::KeyW) => Joystick::Up, // Up
-            PhysicalKey::Code(KeyCode::ArrowDown) | PhysicalKey::Code(KeyCode::KeyS) => Joystick::Down, // Down
-            PhysicalKey::Code(KeyCode::Enter) => Joystick::Button, // Button
+            PhysicalKey::Code(KeyCode::ArrowRight) | PhysicalKey::Code(KeyCode::KeyD) => Input::Joystick(Joystick::Right), // Right
+            PhysicalKey::Code(KeyCode::ArrowLeft) | PhysicalKey::Code(KeyCode::KeyA) => Input::Joystick(Joystick::Left), // Left
+            PhysicalKey::Code(KeyCode::ArrowUp) | PhysicalKey::Code(KeyCode::KeyW) => Input::Joystick(Joystick::Up), // Up
+            PhysicalKey::Code(KeyCode::ArrowDown) | PhysicalKey::Code(KeyCode::KeyS) => Input::Joystick(Joystick::Down), // Down
+            PhysicalKey::Code(KeyCode::Enter) => Input::Joystick(Joystick::Button), // Button
             _ => return,
         };
 
