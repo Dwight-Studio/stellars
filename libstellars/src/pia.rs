@@ -64,7 +64,6 @@ impl Pia {
         self.intim = value;
 
         if underflow {
-            self.old_timer = self.selected_timer;
             self.selected_timer = Timer::Tim1t;
             self.instat = 0b1100_0000;
         }
