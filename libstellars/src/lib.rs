@@ -9,12 +9,14 @@ use crate::tia::Tia;
 
 #[cfg(feature = "test-utils")]
 use serde_json::{Map, Value};
+use crate::pia::Pia;
 
 mod cpu;
 mod registers;
 mod memory;
 mod tia;
 pub mod controller;
+mod pia;
 
 pub const SCREEN_WIDTH: u32 = 160;
 pub const SCREEN_HEIGHT: u32 = 192;
@@ -31,6 +33,7 @@ pub struct Stellar {
     tia: Arc<RwLock<Tia>>,
     cpu: Arc<RwLock<Cpu>>,
     controller: Arc<RwLock<Controller>>,
+    pia: Arc<RwLock<Pia>>,
     
     frame_ready: AtomicBool,
 }
@@ -42,6 +45,7 @@ impl Stellar {
             tia: Arc::new(RwLock::new(Tia::new())),
             cpu: Arc::new(RwLock::new(Cpu::new())),
             controller: Arc::new(RwLock::new(Controller::new())),
+            pia: Arc::new(RwLock::new(Pia::new())),
             
             frame_ready: AtomicBool::new(false),
         }));
@@ -100,6 +104,8 @@ impl Stellar {
             data = self.memory.read().unwrap().stack[(address - 0x100) as usize]
         } else if address == 0x0280 || address == 0x003C {
             data = self.controller.read().unwrap().read_inputs(address);
+        } else if (0x0284..=0x0285).contains(&address) || (0x0294..=0x0297).contains(&address) {
+            data = self.pia.write().unwrap().read(address);
         } else if address >= 0xF000 {
             data = self.memory.read().unwrap().game_rom[(address - 0xF000) as usize]
         } else {
@@ -123,6 +129,8 @@ impl Stellar {
             self.memory.write().unwrap().ram[(address - 0x80) as usize] = value;
         } else if (0x0100..=0x01FF).contains(&address) {
             self.memory.write().unwrap().stack[(address - 0x100) as usize] = value;
+        } else if (0x0294..=0x0297).contains(&address) {
+            self.pia.write().unwrap().write(address, value);
         }
     }
 
@@ -133,6 +141,7 @@ impl Stellar {
 
     pub(crate) fn tick(&self) {
         self.tia.write().unwrap().tick();
+        self.pia.write().unwrap().tick();
     }
 
     #[cfg(feature = "test-utils")]
