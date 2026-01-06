@@ -2,11 +2,13 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicBool, Ordering};
-use serde_json::{Map, Value};
 use crate::controller::{Controller, Input};
 use crate::memory::Memory;
 use crate::cpu::Cpu;
 use crate::tia::Tia;
+
+#[cfg(feature = "test-utils")]
+use serde_json::{Map, Value};
 
 mod cpu;
 mod registers;
@@ -129,8 +131,8 @@ impl Stellar {
         self.memory.write().unwrap().ram[address as usize] = value;
     }
 
-    pub(crate) fn tick(&self, cycles: u64) {
-        self.tia.write().unwrap().tick(cycles);
+    pub(crate) fn tick(&self) {
+        self.tia.write().unwrap().tick();
     }
 
     #[cfg(feature = "test-utils")]

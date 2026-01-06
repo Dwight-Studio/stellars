@@ -1,10 +1,12 @@
 mod colors;
 mod register;
+mod counter;
 
 use crate::tia::colors::NTSC_COLORS;
 use crate::{Color, Stellar, SCREEN_HEIGHT, SCREEN_WIDTH};
 use std::sync::{RwLock, Weak};
 use std::sync::atomic::Ordering;
+use crate::tia::counter::Counter;
 use crate::tia::register::Register;
 
 static PM_SIZE: [u8; 4] = [1, 2, 4, 8];
@@ -29,11 +31,15 @@ pub enum WORegs {
     Resm1 = 0x13,
     Enam0 = 0x1D,
     Enam1 = 0x1E,
+    Hmm0 = 0x22,
+    Hmm1 = 0x23,
+    Hmove = 0x2A,
+    Hmclr = 0x2B,
 }
-#[repr(u8)]
+/*#[repr(u8)]
 pub enum RORegs {
     NoneForNow = 0x00,
-}
+}*/
 
 pub struct Tia {
     pub(crate) bus: Option<Weak<RwLock<Stellar>>>,
@@ -41,7 +47,7 @@ pub struct Tia {
 
     /* Registers */
     wo_regs: [u8; 0x2D],
-    ro_regs: [u8; 0x0E],
+    // ro_regs: [u8; 0x0E],
 
     /* Internals */
     pic_x: u8,
@@ -49,8 +55,8 @@ pub struct Tia {
     vblank: (bool, u16),
     pf_pixels_per_bit: u8,
     clock_count: u64,
-    m0_counter: u8,
-    m1_counter: u8,
+    m0_counter: Counter,
+    m1_counter: Counter,
 }
 
 impl Tia {
@@ -60,15 +66,15 @@ impl Tia {
             pic_buffer: [Color { r: 0x00, g: 0x00, b: 0x00 }; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize],
 
             wo_regs: [0x00; 0x2D],
-            ro_regs: [0; 0x0E],
+            // ro_regs: [0; 0x0E],
 
             pic_x: 0x0000,
             pic_y: 0x0000,
             vblank: (true, 0),
             pf_pixels_per_bit: (SCREEN_WIDTH as u8 / 2) / 20,
             clock_count: 0,
-            m0_counter: 0,
-            m1_counter: 0,
+            m0_counter: Counter::new(SCREEN_WIDTH as u8),
+            m1_counter: Counter::new(SCREEN_WIDTH as u8),
         }
     }
 
@@ -76,9 +82,19 @@ impl Tia {
         if  address == WORegs::Wsync as u8 {
             self.wo_regs[address as usize] = 0x1;
         } else if address == WORegs::Resm0 as u8 {
-            self.m0_counter = 0;
+            self.m0_counter.reset();
         } else if address == WORegs::Resm1 as u8 {
-            self.m1_counter = 158;
+            self.m1_counter.reset();
+        } else if address == WORegs::Hmove as u8 {
+            self.wo_regs[address as usize] = 8;
+            if self.get_wo_reg(WORegs::Hmm0).four_bits_twos_complement() < 0 {
+                self.m0_counter.decrement(-self.get_wo_reg(WORegs::Hmm0).four_bits_twos_complement() as u8);
+            } else {
+                self.m0_counter.increment(self.get_wo_reg(WORegs::Hmm0).four_bits_twos_complement() as u8);
+            }
+        } else if address == WORegs::Hmclr as u8 {
+            self.wo_regs[WORegs::Hmm0 as usize] = 0x00;
+            self.wo_regs[WORegs::Hmm1 as usize] = 0x00;
         } else {
             self.wo_regs[address as usize] = value;
         }
@@ -88,12 +104,13 @@ impl Tia {
         Register::new(self.wo_regs[address as usize])
     }
 
-    pub fn tick(&mut self, cycles: u64) {
-        for _ in 0..cycles * 3 {
+    pub fn tick(&mut self) {
+        for _ in 0..3 {
             if self.get_wo_reg(WORegs::Vsync).bit(1) {
                 self.pic_x = 0x00;
                 self.pic_y = 0x00;
                 self.wo_regs[WORegs::Wsync as usize] = 0;
+                self.wo_regs[WORegs::Hmove as usize] = 0;
                 self.vblank = (true, 0);
                 self.clock_count = 684;
                 break;
@@ -117,21 +134,19 @@ impl Tia {
             loop {
                 if self.pic_x >= 228 {
                     self.pic_x = 0;
-                    self.pic_y += 1;
+                    if self.pic_y < SCREEN_HEIGHT as u8 {self.pic_y += 1;}
                     self.wo_regs[WORegs::Wsync as usize] = 0;
                 }
 
-                if self.pic_x >= 68 && self.pic_y < 192 {
+                if self.pic_x >= 68 + self.get_wo_reg(WORegs::Hmove).value && self.pic_y < 192 {
                     if self.get_wo_reg(WORegs::Ctrlpf).bit(2) {
                         self.draw_playfield();
                     } else {
                         self.draw_player(0);
                     }
 
-                    self.m0_counter += 1;
-                    self.m1_counter += 1;
-                    if self.m0_counter >= SCREEN_WIDTH as u8 { self.m0_counter = 0; }
-                    if self.m1_counter >= SCREEN_WIDTH as u8 { self.m1_counter = 0; }
+                    self.m0_counter.update();
+                    self.m1_counter.update();
                 }
 
                 self.pic_x += 1;
@@ -174,8 +189,18 @@ impl Tia {
         let mut triggered = false;
 
         for trigger in PM_NUMBER[missile_nb as usize] {
-            if  (missile == 0 && &self.m0_counter >= trigger && self.m0_counter - trigger < PM_SIZE[missile_size as usize]) ||
-                (missile == 1 && &self.m1_counter >= trigger && self.m1_counter - trigger < PM_SIZE[missile_size as usize])
+            /* I didn't find the information about why the missiles are shifted of 2 color counts
+               (So they never start at the left most of the picture).
+               Doing it like that seems wrong and hacky but until I find why, that will work x)
+
+               This might be because a reset is done it two steps:
+               - First reset the horizontal counter to 0 (first color clock)
+               - Then the horizontal counter is compared with trigger values and set a START signal
+                 to indicate that the object should be drawn (second color count)
+               - Draw it (first pixel appears on the third pixel)*/
+            let trigg = trigger + 2;
+            if  (missile == 0 && self.m0_counter.count() >= trigg && self.m0_counter.count() - trigg < PM_SIZE[missile_size as usize]) ||
+                (missile == 1 && self.m1_counter.count() >= trigg && self.m1_counter.count() - trigg < PM_SIZE[missile_size as usize])
             {
                 triggered = true;
                 break;
