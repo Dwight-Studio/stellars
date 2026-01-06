@@ -94,11 +94,13 @@ fn ora(cpu: &mut Cpu, value: u8) {
     cpu.registers.set_n(cpu.registers.acc >> 7 == 1);
 }
 
-fn and(cpu: &mut Cpu, value: u8) {
+fn and(cpu: &mut Cpu, value: u8) -> u8 {
     cpu.registers.acc &= value;
 
     cpu.registers.set_z(cpu.registers.acc == 0);
     cpu.registers.set_n(cpu.registers.acc >> 7 == 1);
+
+    cpu.registers.acc
 }
 
 fn eor(cpu: &mut Cpu, value: u8) {
@@ -108,7 +110,7 @@ fn eor(cpu: &mut Cpu, value: u8) {
     cpu.registers.set_n(cpu.registers.acc >> 7 == 1);
 }
 
-fn asl(cpu: &mut Cpu, address: u16) {
+fn asl(cpu: &mut Cpu, address: u16) -> u8 {
     let old_value = cpu.read_byte(address);
     let result = old_value << 1;
     cpu.write_byte(address, old_value);
@@ -117,6 +119,8 @@ fn asl(cpu: &mut Cpu, address: u16) {
     cpu.registers.set_c(old_value >> 7 == 1);
     cpu.registers.set_z(result == 0);
     cpu.registers.set_n(result >> 7 == 1);
+
+    result
 }
 
 fn rol(cpu: &mut Cpu, address: u16) {
@@ -287,7 +291,7 @@ fn cpx(cpu: &mut Cpu, value: u8) {
     cpu.registers.set_n(result >> 7 == 1);
 }
 
-fn dec(cpu: &mut Cpu, address: u16) {
+fn dec(cpu: &mut Cpu, address: u16) -> u8 {
     let value = cpu.read_byte(address);
     let result = value.wrapping_sub(1);
     cpu.write_byte(address, value);
@@ -295,6 +299,8 @@ fn dec(cpu: &mut Cpu, address: u16) {
 
     cpu.registers.set_z(result == 0);
     cpu.registers.set_n(result >> 7 == 1);
+
+    result
 }
 
 fn inc(cpu: &mut Cpu, address: u16) {
@@ -305,6 +311,19 @@ fn inc(cpu: &mut Cpu, address: u16) {
 
     cpu.registers.set_z(result == 0);
     cpu.registers.set_n(result >> 7 == 1);
+}
+
+fn jam(cpu: &mut Cpu) {
+    cpu.read_byte(cpu.registers.pc);
+    cpu.read_byte(0xFFFF);
+    cpu.read_byte(0xFFFE);
+    cpu.read_byte(0xFFFE);
+    cpu.read_byte(0xFFFF);
+    cpu.read_byte(0xFFFF);
+    cpu.read_byte(0xFFFF);
+    cpu.read_byte(0xFFFF);
+    cpu.read_byte(0xFFFF);
+    cpu.read_byte(0xFFFF);
 }
 
 #[allow(clippy::cast_possible_wrap)]
@@ -329,14 +348,23 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let value = cpu.read_byte(address);
         ora(cpu, value);
     },
-    |_| {
+    |cpu| {
         /* 0x02 */
+        /* JAM */
+        jam(cpu);
     },
-    |_| {
+    |cpu| {
         /* 0x03 */
+        /* SLO (nn,X) */
+        let address = indirect_x(cpu);
+        let value = asl(cpu, address);
+        ora(cpu, value);
     },
-    |_| {
+    |cpu| {
         /* 0x04 */
+        /* NOP nn */
+        let address = zpg(cpu);
+        cpu.read_byte(address);
     },
     |cpu| {
         /* 0x05 */
@@ -351,8 +379,12 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let address = zpg(cpu);
         asl(cpu, address);
     },
-    |_| {
+    |cpu| {
         /* 0x07 */
+        /* SLO nn */
+        let address = zpg(cpu);
+        let value = asl(cpu, address);
+        ora(cpu, value);
     },
     |cpu| {
         /* 0x08 */
@@ -377,11 +409,19 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         cpu.registers.set_z(cpu.registers.acc == 0);
         cpu.registers.set_n(cpu.registers.acc >> 7 == 1);
     },
-    |_| {
+    |cpu| {
         /* 0x0B */
+        /* ANC #nn */
+        let value = immediate(cpu);
+        let result = and(cpu, value);
+
+        cpu.registers.set_c(result >> 7 == 1);
     },
-    |_| {
+    |cpu| {
         /* 0x0C */
+        /* NOP nnnn */
+        let address = absolute(cpu);
+        cpu.read_byte(address);
     },
     |cpu| {
         /* 0x0D */
@@ -396,8 +436,12 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let address = absolute(cpu);
         asl(cpu, address);
     },
-    |_| {
+    |cpu| {
         /* 0x0F */
+        /* SLO nnnn */
+        let address = absolute(cpu);
+        let value = asl(cpu, address);
+        ora(cpu, value);
     },
     |cpu| {
         /* 0x10 */
@@ -414,14 +458,23 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let value = cpu.read_byte(address);
         ora(cpu, value);
     },
-    |_| {
+    |cpu| {
         /* 0x12 */
+        /* JAM */
+        jam(cpu)
     },
-    |_| {
+    |cpu| {
         /* 0x13 */
+        /* SLO (nn),Y */
+        let address = indirect_y(cpu, true);
+        let value = asl(cpu, address);
+        ora(cpu, value);
     },
-    |_| {
+    |cpu| {
         /* 0x14 */
+        /* NOP nn,X */
+        let address = zpg_x(cpu);
+        cpu.read_byte(address);
     },
     |cpu| {
         /* 0x15 */
@@ -436,8 +489,12 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let address = zpg_x(cpu);
         asl(cpu, address);
     },
-    |_| {
+    |cpu| {
         /* 0x17 */
+        /* SLO nn,X */
+        let address = zpg_x(cpu);
+        let value = asl(cpu, address);
+        ora(cpu, value);
     },
     |cpu| {
         /* 0x18 */
@@ -452,14 +509,23 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let value = cpu.read_byte(address);
         ora(cpu, value);
     },
-    |_| {
+    |cpu| {
         /* 0x1A */
+        /* NOP */
+        cpu.read_byte(cpu.registers.pc);
     },
-    |_| {
+    |cpu| {
         /* 0x1B */
+        /* SLO nnnn,Y */
+        let address = absolute_y(cpu, true);
+        let value = asl(cpu, address);
+        ora(cpu, value);
     },
-    |_| {
+    |cpu| {
         /* 0x1C */
+        /* NOP nnnn,X */
+        let address = absolute_x(cpu, false);
+        cpu.read_byte(address);
     },
     |cpu| {
         /* 0x1D */
@@ -474,8 +540,12 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let address = absolute_x(cpu, true);
         asl(cpu, address);
     },
-    |_| {
+    |cpu| {
         /* 0x1F */
+        /* SLO nnnn,X */
+        let address = absolute_x(cpu, true);
+        let value = asl(cpu, address);
+        ora(cpu, value);
     },
     |cpu| {
         /* 0x20 */
@@ -1399,8 +1469,11 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let address = zpg(cpu);
         dec(cpu, address);
     },
-    |_| {
+    |cpu| {
         /* 0xC7 */
+        let address = zpg(cpu);
+        let value = dec(cpu, address);
+        cmp(cpu, value);
     },
     |cpu| {
         /* 0xC8 */
@@ -1590,7 +1663,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0xEA */
         /* NOP */
-        let _ = cpu.read_byte(cpu.registers.pc);
+        cpu.read_byte(cpu.registers.pc);
     },
     |_| {
         /* 0xEB */
