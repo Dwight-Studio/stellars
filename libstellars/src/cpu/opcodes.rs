@@ -1089,6 +1089,7 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x6B */
         /* ARR #nn */
+        //fixme: A=(A AND nn), V=Overflow(A+A), A=A/2+C*80h, C=A.Bit6
         let value = immediate(cpu);
         let anded = and(cpu, value);
         let high_value = u8::from(cpu.registers.get_c());
