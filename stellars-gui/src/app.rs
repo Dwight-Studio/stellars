@@ -9,6 +9,7 @@ use winit::window::{Window, WindowId};
 use libstellars::{Stellar, SCREEN_HEIGHT, SCREEN_WIDTH};
 
 mod stellars_render;
+mod debugger_state;
 
 pub struct App {
     libstellars: Arc<RwLock<Stellar>>,

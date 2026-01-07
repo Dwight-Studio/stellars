@@ -9,6 +9,7 @@ use crate::tia::Tia;
 
 #[cfg(feature = "test-utils")]
 use serde_json::{Map, Value};
+use crate::debug::StellarDebugInfo;
 use crate::pia::Pia;
 
 mod cpu;
@@ -17,6 +18,7 @@ mod memory;
 mod tia;
 pub mod controller;
 mod pia;
+mod debug;
 
 pub const SCREEN_WIDTH: u32 = 160;
 pub const SCREEN_HEIGHT: u32 = 192;
@@ -91,34 +93,44 @@ impl Stellar {
         }
     }
 
+    pub fn update_inputs(&self, input: Input, pressed: bool) {
+        self.controller.write().unwrap().update_inputs(input, pressed)
+    }
+
+    pub fn get_debug_info(&self) -> StellarDebugInfo {
+        StellarDebugInfo {
+            cpu: self.cpu.read().unwrap().get_debug_info(),
+            memory: self.memory.read().unwrap().get_debug_info()
+        }
+    }
+
+    pub fn read(&self, address: u16) -> u8 {
+        self.read_byte(address)
+    }
+
     #[cfg(not(feature = "test-utils"))]
     pub(crate) fn read_byte(&self, address: u16) -> u8 {
         let data: u8;
 
-        if address <= 0x0D {
+        /*if address <= 0x0D {
             /*todo!("Input and collision latches")*/
             data = 0x00;
-        } else if (0x0080..=0x00FF).contains(&address) {
+        } else */if (0x0080..=0x00FF).contains(&address) {
             data = self.memory.read().unwrap().ram[(address - 0x80) as usize]
-        } else if (0x0100..=0x01FF).contains(&address) {
-            data = self.memory.read().unwrap().stack[(address - 0x100) as usize]
-        } else if address == 0x0280 || address == 0x003C {
+        } else if (0x0180..=0x01FF).contains(&address) {
+            data = self.memory.read().unwrap().ram[(address - 0x180) as usize]
+        } else if address == 0x0280 || address == 0x000C {
             data = self.controller.read().unwrap().read_inputs(address);
         } else if (0x0284..=0x0285).contains(&address) || (0x0294..=0x0297).contains(&address) {
             data = self.pia.write().unwrap().read(address);
         } else if address >= 0xF000 {
             data = self.memory.read().unwrap().game_rom[(address - 0xF000) as usize]
         } else {
-            data = 0x00;
+            data = 0xFF;
             // TODO: Reading at unknown address
         }
 
         data
-    }
-
-    #[cfg(feature = "test-utils")]
-    pub(crate) fn read_byte(&self, address: u16) -> u8 {
-        self.memory.read().unwrap().ram[address as usize]
     }
 
     #[cfg(not(feature = "test-utils"))]
@@ -127,21 +139,26 @@ impl Stellar {
             self.tia.write().unwrap().set_wo_reg(address as u8, value);
         } else if (0x0080..=0x00FF).contains(&address) {
             self.memory.write().unwrap().ram[(address - 0x80) as usize] = value;
-        } else if (0x0100..=0x01FF).contains(&address) {
-            self.memory.write().unwrap().stack[(address - 0x100) as usize] = value;
+        } else if (0x0180..=0x01FF).contains(&address) {
+            self.memory.write().unwrap().ram[(address - 0x180) as usize] = value;
         } else if (0x0294..=0x0297).contains(&address) {
             self.pia.write().unwrap().write(address, value);
         }
     }
 
-    #[cfg(feature = "test-utils")]
-    pub(crate) fn write_byte(&self, address: u16, value: u8) {
-        self.memory.write().unwrap().ram[address as usize] = value;
-    }
-
     pub(crate) fn tick(&self) {
         self.tia.write().unwrap().tick();
         self.pia.write().unwrap().tick();
+    }
+
+    #[cfg(feature = "test-utils")]
+    pub(crate) fn read_byte(&self, address: u16) -> u8 {
+        self.memory.read().unwrap().ram[address as usize]
+    }
+
+    #[cfg(feature = "test-utils")]
+    pub(crate) fn write_byte(&self, address: u16, value: u8) {
+        self.memory.write().unwrap().ram[address as usize] = value;
     }
 
     #[cfg(feature = "test-utils")]
@@ -217,9 +234,5 @@ impl Stellar {
     #[cfg(feature = "test-utils")]
     pub fn run_opcode(&self) {
         self.cpu.write().unwrap().execute();
-    }
-
-    pub fn update_inputs(&self, input: Input, pressed: bool) {
-        self.controller.write().unwrap().update_inputs(input, pressed)
     }
 }

@@ -8,6 +8,7 @@ use winit::event::ElementState;
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::Window;
 use libstellars::controller::{Input, Joystick};
+use crate::app::debugger_state::DebuggerState;
 
 pub struct StellarsRender {
     pub window: Arc<Window>,
@@ -61,19 +62,27 @@ impl StellarsRender {
         std::thread::spawn(move || {
             let frame_duration = Duration::from_secs_f64(1.0 / target_framerate);
             let mut frame_start = Instant::now();
+            let mut debugger_state = DebuggerState::new(stellars.clone());
 
+            println!("For help, type \"help\".");
             loop {
-                stellars.read().unwrap().execute();
+                debugger_state.process_debugger_input();
 
-                if let Some(pic_buff) = stellars.read().unwrap().get_picture_buffer() {
-                    picture_buffer.write().unwrap().copy_from_slice(pic_buff.as_slice());
-                    window.request_redraw();
+                while !debugger_state.is_paused() {
+                    stellars.read().unwrap().execute();
 
-                    let elapsed = frame_start.elapsed();
-                    if elapsed < frame_duration {
-                        std::thread::sleep(frame_duration - elapsed);
+                    debugger_state.update();
+
+                    if let Some(pic_buff) = stellars.read().unwrap().get_picture_buffer() {
+                        picture_buffer.write().unwrap().copy_from_slice(pic_buff.as_slice());
+                        window.request_redraw();
+
+                        let elapsed = frame_start.elapsed();
+                        if elapsed < frame_duration {
+                            std::thread::sleep(frame_duration - elapsed);
+                        }
+                        frame_start = Instant::now();
                     }
-                    frame_start = Instant::now();
                 }
             }
         });

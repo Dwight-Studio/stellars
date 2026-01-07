@@ -1,6 +1,6 @@
 #[repr(u16)]
 enum Functions {
-    Inpt4 = 0x003C,
+    Inpt4 = 0x000C,
     Swcha = 0x0280,
 }
 

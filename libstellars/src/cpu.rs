@@ -7,12 +7,14 @@ use std::sync::{RwLock, Weak};
 
 #[cfg(feature = "test-utils")]
 use serde_json::{Map, Value};
+use crate::debug::CpuDebug;
 
 #[cfg(not(feature = "test-utils"))]
 pub struct Cpu {
     pub(crate) bus: Option<Weak<RwLock<Stellar>>>,
     
     registers: Registers,
+    cpu_debug: CpuDebug
 }
 
 #[cfg(feature = "test-utils")]
@@ -21,34 +23,53 @@ pub struct Cpu {
 
     registers: Registers,
     cycles: u64,
-    pub(crate) cycles_info: Vec<(u16, u8, String)>
+    pub(crate) cycles_info: Vec<(u16, u8, String)>,
+    cpu_debug: CpuDebug
 }
 
 impl Cpu {
     #[cfg(not(feature = "test-utils"))]
     pub fn new() -> Self {
+        let registers = Registers::new();
         Cpu {
             bus: None,
             
-            registers: Registers::new(),
+            registers,
+            cpu_debug: CpuDebug {
+                registers,
+                executed_opcode: (0x00, 0x0000)
+            }
         }
     }
 
     #[cfg(feature = "test-utils")]
     pub fn new() -> Self {
+        let registers = Registers::new();
         Cpu {
             bus: None,
 
-            registers: Registers::new(),
+            registers,
             cycles: 0,
-            cycles_info: Vec::new()
+            cycles_info: Vec::new(),
+            cpu_debug: CpuDebug {
+                registers,
+                executed_opcode: (0x00, 0x0000)
+            }
         }
     }
 
     pub fn execute(&mut self) {
+        self.cpu_debug.executed_opcode.1 = self.registers.pc;
         let opcode = self.fetch_byte();
 
         OPCODES[opcode as usize](self);
+
+        self.cpu_debug.executed_opcode.0 = opcode;
+        self.cpu_debug.registers = self.registers;
+    }
+
+    pub fn get_debug_info(&self) -> CpuDebug {
+        self.cpu_debug
     }
 
     pub(crate) fn init_pc(&mut self, pc: u16) {

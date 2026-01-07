@@ -1,14 +1,14 @@
+#[derive(Copy,Clone)]
 pub struct Registers {
-    pub(crate) acc: u8,
-    pub(crate) x: u8,
-    pub(crate) y: u8,
-    pub(crate) pc: u16,
-    pub(crate) sp: u8,
-    pub(crate) p: u8
+    pub acc: u8,
+    pub x: u8,
+    pub y: u8,
+    pub pc: u16,
+    pub sp: u8,
+    pub p: u8
 }
 
 impl Registers {
-    //fixme: pc doit être égal à [0xFFFC] sauf que la mémoire n'existe pas encore ici
     pub fn new() -> Self {
         Registers {
             acc: 0x00,
