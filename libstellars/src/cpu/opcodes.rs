@@ -123,7 +123,7 @@ fn asl(cpu: &mut Cpu, address: u16) -> u8 {
     result
 }
 
-fn rol(cpu: &mut Cpu, address: u16) {
+fn rol(cpu: &mut Cpu, address: u16) -> u8 {
     let old_value = cpu.read_byte(address);
     let low_value = u8::from(cpu.registers.get_c());
     let result = (old_value << 1) | low_value;
@@ -133,9 +133,11 @@ fn rol(cpu: &mut Cpu, address: u16) {
     cpu.registers.set_c(old_value >> 7 == 1);
     cpu.registers.set_z(result == 0);
     cpu.registers.set_n(result >> 7 == 1);
+
+    result
 }
 
-fn lsr(cpu: &mut Cpu, address: u16) {
+fn lsr(cpu: &mut Cpu, address: u16) -> u8 {
     let old_value = cpu.read_byte(address);
     let result = old_value >> 1;
     cpu.write_byte(address, old_value);
@@ -144,9 +146,11 @@ fn lsr(cpu: &mut Cpu, address: u16) {
     cpu.registers.set_c(old_value & 0b0000_0001 == 1);
     cpu.registers.set_z(result == 0);
     cpu.registers.set_n(false);
+
+    result
 }
 
-fn ror(cpu: &mut Cpu, address: u16) {
+fn ror(cpu: &mut Cpu, address: u16) -> u8 {
     let old_value = cpu.read_byte(address);
     let high_value = u8::from(cpu.registers.get_c());
     let result = (high_value << 7) | (old_value >> 1);
@@ -156,6 +160,8 @@ fn ror(cpu: &mut Cpu, address: u16) {
     cpu.registers.set_c(old_value & 0b0000_0001 == 1);
     cpu.registers.set_z(result == 0);
     cpu.registers.set_n(high_value != 0);
+
+    result
 }
 
 #[allow(clippy::cast_possible_wrap)]
@@ -564,11 +570,17 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let value = cpu.read_byte(address);
         and(cpu, value);
     },
-    |_| {
+    |cpu| {
         /* 0x22 */
+        /* JAM */
+        jam(cpu);
     },
-    |_| {
+    |cpu| {
         /* 0x23 */
+        /* RLA (nn,X) */
+        let address = indirect_x(cpu);
+        let value = rol(cpu, address);
+        let _ = and(cpu, value);
     },
     |cpu| {
         /* 0x24 */
@@ -594,8 +606,12 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let address = zpg(cpu);
         rol(cpu, address);
     },
-    |_| {
+    |cpu| {
         /* 0x27 */
+        /* RLA nn */
+        let address = zpg(cpu);
+        let value = rol(cpu, address);
+        let _ = and(cpu, value);
     },
     |cpu| {
         /* 0x28 */
@@ -622,8 +638,13 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         cpu.registers.set_z(cpu.registers.acc == 0);
         cpu.registers.set_n(cpu.registers.acc >> 7 == 1);
     },
-    |_| {
+    |cpu| {
         /* 0x2B */
+        /* ANC #nn */
+        let value = immediate(cpu);
+        let result = and(cpu, value);
+
+        cpu.registers.set_c(result >> 7 == 1);
     },
     |cpu| {
         /* 0x2C */
@@ -649,8 +670,12 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let address = absolute(cpu);
         rol(cpu, address);
     },
-    |_| {
+    |cpu| {
         /* 0x2F */
+        /* RLA nnnn */
+        let address = absolute(cpu);
+        let value = rol(cpu, address);
+        let _ = and(cpu, value);
     },
     |cpu| {
         /* 0x30 */
@@ -667,14 +692,23 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let value = cpu.read_byte(address);
         and(cpu, value);
     },
-    |_| {
+    |cpu| {
         /* 0x32 */
+        /* JAM */
+        jam(cpu);
     },
-    |_| {
+    |cpu| {
         /* 0x33 */
+        /* RLA (nn),Y */
+        let address = indirect_y(cpu, true);
+        let value = rol(cpu, address);
+        let _ = and(cpu, value);
     },
-    |_| {
+    |cpu| {
         /* 0x34 */
+        /* NOP nn,X */
+        let address = zpg_x(cpu);
+        cpu.read_byte(address);
     },
     |cpu| {
         /* 0x35 */
@@ -689,8 +723,12 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let address = zpg_x(cpu);
         rol(cpu, address);
     },
-    |_| {
+    |cpu| {
         /* 0x37 */
+        /* RLA nn,X */
+        let address = zpg_x(cpu);
+        let value = rol(cpu, address);
+        let _ = and(cpu, value);
     },
     |cpu| {
         /* 0x38 */
@@ -705,14 +743,23 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let value = cpu.read_byte(address);
         and(cpu, value);
     },
-    |_| {
+    |cpu| {
         /* 0x3A */
+        /* NOP */
+        cpu.read_byte(cpu.registers.pc);
     },
-    |_| {
+    |cpu| {
         /* 0x3B */
+        /* RLA nnnn,Y */
+        let address = absolute_y(cpu, true);
+        let value = rol(cpu, address);
+        let _ = and(cpu, value);
     },
-    |_| {
+    |cpu| {
         /* 0x3C */
+        /* NOP nnnn,X */
+        let address = absolute_x(cpu, false);
+        cpu.read_byte(address);
     },
     |cpu| {
         /* 0x3D */
@@ -727,8 +774,12 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let address = absolute_x(cpu, true);
         rol(cpu, address);
     },
-    |_| {
+    |cpu| {
         /* 0x3F */
+        /* RLA nnnn,X */
+        let address = absolute_x(cpu, true);
+        let value = rol(cpu, address);
+        let _ = and(cpu, value);
     },
     |cpu| {
         /* 0x40 */
@@ -748,14 +799,23 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let value = cpu.read_byte(address);
         eor(cpu, value);
     },
-    |_| {
+    |cpu| {
         /* 0x42 */
+        /* JAM */
+        jam(cpu);
     },
-    |_| {
+    |cpu| {
         /* 0x43 */
+        /* SRE (nn,X) */
+        let address = indirect_x(cpu);
+        let value = lsr(cpu, address);
+        eor(cpu, value);
     },
-    |_| {
+    |cpu| {
         /* 0x44 */
+        /* NOP nn */
+        let address = zpg(cpu);
+        cpu.read_byte(address);
     },
     |cpu| {
         /* 0x45 */
@@ -770,8 +830,12 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let address = zpg(cpu);
         lsr(cpu, address);
     },
-    |_| {
+    |cpu| {
         /* 0x47 */
+        /* SRE nn */
+        let address = zpg(cpu);
+        let value = lsr(cpu, address);
+        eor(cpu, value);
     },
     |cpu| {
         /* 0x48 */
@@ -796,8 +860,17 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         cpu.registers.set_z(cpu.registers.acc == 0);
         cpu.registers.set_n(false);
     },
-    |_| {
+    |cpu| {
         /* 0x4B */
+        /* ALR #nn */
+        let value = immediate(cpu);
+        let _ = and(cpu, value);
+        let old_value = cpu.registers.acc;
+        cpu.registers.acc >>= 1;
+
+        cpu.registers.set_c(old_value & 0b0000_0001 == 1);
+        cpu.registers.set_z(cpu.registers.acc == 0);
+        cpu.registers.set_n(false);
     },
     |cpu| {
         /* 0x4C */
@@ -818,8 +891,12 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let address = absolute(cpu);
         lsr(cpu, address);
     },
-    |_| {
+    |cpu| {
         /* 0x4F */
+        /* SRE nnnn */
+        let address = absolute(cpu);
+        let value = lsr(cpu, address);
+        eor(cpu, value);
     },
     |cpu| {
         /* 0x50 */
@@ -836,14 +913,23 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let value = cpu.read_byte(address);
         eor(cpu, value);
     },
-    |_| {
+    |cpu| {
         /* 0x52 */
+        /* JAM */
+        jam(cpu)
     },
-    |_| {
+    |cpu| {
         /* 0x53 */
+        /* SRE (nn),Y */
+        let address = indirect_y(cpu, true);
+        let value = lsr(cpu, address);
+        eor(cpu, value);
     },
-    |_| {
+    |cpu| {
         /* 0x54 */
+        /* NOP nn,X */
+        let address = zpg_x(cpu);
+        cpu.read_byte(address);
     },
     |cpu| {
         /* 0x55 */
@@ -917,14 +1003,23 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let value = cpu.read_byte(address);
         adc(cpu, value);
     },
-    |_| {
+    |cpu| {
         /* 0x62 */
+        /* JAM */
+        jam(cpu)
     },
-    |_| {
+    |cpu| {
         /* 0x63 */
+        /* RRA (nn,X) */
+        let address = indirect_x(cpu);
+        let value = ror(cpu, address);
+        adc(cpu, value);
     },
-    |_| {
+    |cpu| {
         /* 0x64 */
+        /* NOP nn */
+        let address = zpg(cpu);
+        cpu.read_byte(address);
     },
     |cpu| {
         /* 0x65 */
@@ -1014,14 +1109,23 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let value = cpu.read_byte(address);
         adc(cpu, value);
     },
-    |_| {
+    |cpu| {
         /* 0x72 */
+        /* JAM */
+        jam(cpu)
     },
-    |_| {
+    |cpu| {
         /* 0x73 */
+        /* RRA (nn),Y */
+        let address = indirect_y(cpu, true);
+        let value = ror(cpu, address);
+        adc(cpu, value);
     },
-    |_| {
+    |cpu| {
         /* 0x74 */
+        /* NOP nn,X */
+        let address = zpg_x(cpu);
+        cpu.read_byte(address);
     },
     |cpu| {
         /* 0x75 */
@@ -1077,8 +1181,10 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |_| {
         /* 0x7F */
     },
-    |_| {
+    |cpu| {
         /* 0x80 */
+        /* NOP #nn */
+        let _ = immediate(cpu);
     },
     |cpu| {
         /* 0x81 */
@@ -1086,11 +1192,17 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let address = indirect_x(cpu);
         cpu.write_byte(address, cpu.registers.acc);
     },
-    |_| {
+    |cpu| {
         /* 0x82 */
+        /* NOP #nn */
+        let _ = immediate(cpu);
     },
-    |_| {
+    |cpu| {
         /* 0x83 */
+        /* SAX (nn, X) */
+        let address = indirect_x(cpu);
+        let value = cpu.registers.acc & cpu.registers.x;
+        cpu.write_byte(address, value);
     },
     |cpu| {
         /* 0x84 */
@@ -1122,8 +1234,10 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         cpu.registers.set_z(cpu.registers.y == 0);
         cpu.registers.set_n(cpu.registers.y >> 7 == 1);
     },
-    |_| {
+    |cpu| {
         /* 0x89 */
+        /* NOP #nn */
+        let _ = immediate(cpu);
     },
     |cpu| {
         /* 0x8A */
@@ -1172,8 +1286,10 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let address = indirect_y(cpu, true);
         cpu.write_byte(address, cpu.registers.acc);
     },
-    |_| {
+    |cpu| {
         /* 0x92 */
+        /* JAM */
+        jam(cpu)
     },
     |_| {
         /* 0x93 */
@@ -1351,8 +1467,10 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let value = cpu.read_byte(address);
         lda(cpu, value);
     },
-    |_| {
+    |cpu| {
         /* 0xB2 */
+        /* JAM */
+        jam(cpu)
     },
     |_| {
         /* 0xB3 */
@@ -1443,8 +1561,10 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let value = cpu.read_byte(address);
         cmp(cpu, value);
     },
-    |_| {
+    |cpu| {
         /* 0xC2 */
+        /* NOP #nn */
+        let _ = immediate(cpu);
     },
     |_| {
         /* 0xC3 */
@@ -1540,14 +1660,19 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let value = cpu.read_byte(address);
         cmp(cpu, value);
     },
-    |_| {
+    |cpu| {
         /* 0xD2 */
+        /* JAM */
+        jam(cpu)
     },
     |_| {
         /* 0xD3 */
     },
-    |_| {
+    |cpu| {
         /* 0xD4 */
+        /* NOP nn,X */
+        let address = zpg_x(cpu);
+        cpu.read_byte(address);
     },
     |cpu| {
         /* 0xD5 */
@@ -1616,8 +1741,10 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let value = !cpu.read_byte(address);
         sbc(cpu, value);
     },
-    |_| {
+    |cpu| {
         /* 0xE2 */
+        /* NOP #nn */
+        let _ = immediate(cpu);
     },
     |_| {
         /* 0xE3 */
@@ -1706,14 +1833,19 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         let value = !cpu.read_byte(address);
         sbc(cpu, value);
     },
-    |_| {
+    |cpu| {
         /* 0xF2 */
+        /* JAM */
+        jam(cpu)
     },
     |_| {
         /* 0xF3 */
     },
-    |_| {
+    |cpu| {
         /* 0xF4 */
+        /* NOP nn,X */
+        let address = zpg_x(cpu);
+        cpu.read_byte(address);
     },
     |cpu| {
         /* 0xF5 */
