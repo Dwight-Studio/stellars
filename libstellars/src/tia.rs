@@ -9,7 +9,7 @@ use std::sync::atomic::Ordering;
 use crate::tia::counter::Counter;
 use crate::tia::register::Register;
 
-static PM_SIZE: [u8; 4] = [1, 2, 4, 8];
+static PMB_SIZE: [u8; 4] = [1, 2, 4, 8];
 static PM_NUMBER: [&[u8]; 8] = [&[0], &[0, 16], &[0, 32], &[0, 16, 32], &[0, 64], &[0, 8], &[0, 32, 64], &[0, 8, 16, 32]];
 
 #[derive(Copy, Clone)]
@@ -29,10 +29,13 @@ pub enum WORegs {
     Pf2 = 0x0F,
     Resm0 = 0x12,
     Resm1 = 0x13,
+    Resbl = 0x14,
     Enam0 = 0x1D,
     Enam1 = 0x1E,
+    Enabl = 0x1F,
     Hmm0 = 0x22,
     Hmm1 = 0x23,
+    Hmbl = 0x24,
     Hmove = 0x2A,
     Hmclr = 0x2B,
 }
@@ -55,8 +58,10 @@ pub struct Tia {
     vblank: (bool, u16),
     pf_pixels_per_bit: u8,
     clock_count: u64,
+
     m0_counter: Counter,
     m1_counter: Counter,
+    bl_counter: Counter,
 }
 
 impl Tia {
@@ -75,6 +80,7 @@ impl Tia {
             clock_count: 0,
             m0_counter: Counter::new(SCREEN_WIDTH as u8),
             m1_counter: Counter::new(SCREEN_WIDTH as u8),
+            bl_counter: Counter::new(SCREEN_WIDTH as u8),
         }
     }
 
@@ -85,16 +91,23 @@ impl Tia {
             self.m0_counter.reset();
         } else if address == WORegs::Resm1 as u8 {
             self.m1_counter.reset();
+        } else if address == WORegs::Resbl as u8 {
+            self.bl_counter.reset();
         } else if address == WORegs::Hmove as u8 {
             self.wo_regs[address as usize] = 8;
-            if self.get_wo_reg(WORegs::Hmm0).four_bits_twos_complement() < 0 {
-                self.m0_counter.decrement(-self.get_wo_reg(WORegs::Hmm0).four_bits_twos_complement() as u8);
-            } else {
-                self.m0_counter.increment(self.get_wo_reg(WORegs::Hmm0).four_bits_twos_complement() as u8);
+
+            for reg in [WORegs::Hmm0, WORegs::Hmm1, WORegs::Hmbl] {
+                let fbc_val = self.get_wo_reg(reg).four_bits_twos_complement();
+                if fbc_val < 0 {
+                    self.m0_counter.decrement(-fbc_val as u8);
+                } else {
+                    self.m0_counter.increment(fbc_val as u8);
+                }
             }
         } else if address == WORegs::Hmclr as u8 {
             self.wo_regs[WORegs::Hmm0 as usize] = 0x00;
             self.wo_regs[WORegs::Hmm1 as usize] = 0x00;
+            self.wo_regs[WORegs::Hmbl as usize] = 0x00;
         } else {
             self.wo_regs[address as usize] = value;
         }
@@ -110,7 +123,6 @@ impl Tia {
                 self.pic_x = 0x00;
                 self.pic_y = 0x00;
                 self.wo_regs[WORegs::Wsync as usize] = 0;
-                self.wo_regs[WORegs::Hmove as usize] = 0;
                 self.vblank = (true, 0);
                 self.clock_count = 684;
                 break;
@@ -136,6 +148,7 @@ impl Tia {
                     self.pic_x = 0;
                     if self.pic_y < SCREEN_HEIGHT as u8 {self.pic_y += 1;}
                     self.wo_regs[WORegs::Wsync as usize] = 0;
+                    self.wo_regs[WORegs::Hmove as usize] = 0;
                 }
 
                 if self.pic_x >= 68 + self.get_wo_reg(WORegs::Hmove).value && self.pic_y < 192 {
@@ -147,6 +160,7 @@ impl Tia {
 
                     self.m0_counter.update();
                     self.m1_counter.update();
+                    self.bl_counter.update();
                 }
 
                 self.pic_x += 1;
@@ -186,6 +200,7 @@ impl Tia {
         let missile_enable = if missile == 0 { self.get_wo_reg(WORegs::Enam0) } else { self.get_wo_reg(WORegs::Enam1) };
         let missile_color = if missile == 0 { self.get_wo_reg(WORegs::Colup0) } else { self.get_wo_reg(WORegs::Colup1) };
         let (missile_size, missile_nb) = if missile == 0 { (self.get_wo_reg(WORegs::Nusiz0).value >> 4 & 0x3, self.get_wo_reg(WORegs::Nusiz0).value & 0x7) } else { (self.get_wo_reg(WORegs::Nusiz1).value >> 4 & 0x3, self.get_wo_reg(WORegs::Nusiz1).value & 0x7) };
+        let missile_count = if missile == 0 { self.m0_counter.count() } else { self.m1_counter.count() };
         let mut triggered = false;
 
         for trigger in PM_NUMBER[missile_nb as usize] {
@@ -199,9 +214,7 @@ impl Tia {
                  to indicate that the object should be drawn (second color count)
                - Draw it (first pixel appears on the third pixel)*/
             let trigg = trigger + 2;
-            if  (missile == 0 && self.m0_counter.count() >= trigg && self.m0_counter.count() - trigg < PM_SIZE[missile_size as usize]) ||
-                (missile == 1 && self.m1_counter.count() >= trigg && self.m1_counter.count() - trigg < PM_SIZE[missile_size as usize])
-            {
+            if  missile_count >= trigg && missile_count - trigg < PMB_SIZE[missile_size as usize] {
                 triggered = true;
                 break;
             }
@@ -223,7 +236,9 @@ impl Tia {
     }
 
     fn draw_ball(&mut self) {
-        if self.get_wo_reg(WORegs::Ctrlpf).bit(2) {
+        if self.get_wo_reg(WORegs::Enabl).bit(1) && self.bl_counter.count() < PMB_SIZE[((self.get_wo_reg(WORegs::Ctrlpf).value >> 4) & 0x3) as usize] {
+            self.pic_buffer[self.pic_y as usize * SCREEN_WIDTH as usize + (self.pic_x as usize - 68)] = NTSC_COLORS[self.get_wo_reg(WORegs::Colupf).value as usize];
+        } else if self.get_wo_reg(WORegs::Ctrlpf).bit(2) {
             self.draw_player(0);
         } else {
             self.draw_playfield();
