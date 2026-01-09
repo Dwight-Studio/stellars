@@ -1089,7 +1089,6 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x6B */
         /* ARR #nn */
-        //fixme: A=(A AND nn), V=Overflow(A+A), A=A/2+C*80h, C=A.Bit6
         let value = immediate(cpu);
         let anded = and(cpu, value);
         let high_value = u8::from(cpu.registers.get_c());
@@ -1309,10 +1308,9 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     },
     |cpu| {
         /* 0x8B */
-        /* ANE #nn */
-        let mut value = immediate(cpu);
-        value &= cpu.registers.x;
-        and(cpu, value);
+        /* XAA #nn */
+        let value = immediate(cpu);
+        cpu.registers.acc = (cpu.registers.acc | 0xEE) & value & cpu.registers.x;
 
         cpu.registers.set_z(cpu.registers.acc == 0);
         cpu.registers.set_n(cpu.registers.acc >> 7 == 1);
