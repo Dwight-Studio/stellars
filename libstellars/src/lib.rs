@@ -110,7 +110,11 @@ impl Stellar {
     }
 
     pub fn read(&self, address: u16) -> u8 {
-        self.read_byte(address)
+        if address <= 0x2C {
+            self.tia.read().unwrap().unsafe_read(address)
+        } else {
+            self.read_byte(address)
+        }
     }
 
     #[cfg(not(feature = "test-utils"))]

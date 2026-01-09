@@ -73,8 +73,8 @@ impl Tia {
             bus: None,
             pic_buffer: [Color { r: 0x00, g: 0x00, b: 0x00 }; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize],
             tia_debug: TiaDebug {
-                picture_scanline: 0x00,
-                horizontal_counter: 0x00,
+                picture_scanline: 1,
+                horizontal_counter: 1,
                 vsync_enabled: false,
                 vblank_enabled: false
             },
@@ -105,14 +105,14 @@ impl Tia {
         } else if address == WORegs::Hmove as u8 {
             self.wo_regs[address as usize] = 8;
 
-            for reg in [WORegs::Hmm0, WORegs::Hmm1, WORegs::Hmbl] {
-                let fbc_val = self.get_wo_reg(reg).four_bits_twos_complement();
-                if fbc_val < 0 {
-                    self.m0_counter.decrement(-fbc_val as u8);
-                } else {
-                    self.m0_counter.increment(fbc_val as u8);
-                }
-            }
+            let fbc_val = (self.get_wo_reg(WORegs::Hmm0).value >> 4) ^ 0x8;
+            self.m0_counter.increment(fbc_val);
+
+            let fbc_val = (self.get_wo_reg(WORegs::Hmm1).value >> 4) ^ 0x8;
+            self.m1_counter.increment(fbc_val);
+
+            let fbc_val = (self.get_wo_reg(WORegs::Hmbl).value >> 4) ^ 0x8;
+            self.bl_counter.increment(fbc_val);
         } else if address == WORegs::Hmclr as u8 {
             self.wo_regs[WORegs::Hmm0 as usize] = 0x00;
             self.wo_regs[WORegs::Hmm1 as usize] = 0x00;
@@ -126,13 +126,17 @@ impl Tia {
         Register::new(self.wo_regs[address as usize])
     }
 
+    pub fn unsafe_read(&self, address: u16) -> u8 {
+        self.wo_regs[address as usize]
+    }
+
     pub fn tick(&mut self) {
         for _ in 0..3 {
             if self.get_wo_reg(WORegs::Vsync).bit(1) {
                 self.pic_x = 0x00;
                 self.pic_y = 0x00;
-                self.tia_debug.picture_scanline = 0;
-                self.tia_debug.horizontal_counter = 0;
+                self.tia_debug.picture_scanline = 1;
+                self.tia_debug.horizontal_counter = 1;
                 self.wo_regs[WORegs::Wsync as usize] = 0;
                 self.tia_debug.vsync_enabled = true;
                 self.vblank = (true, 0);
@@ -164,7 +168,7 @@ impl Tia {
                     self.pic_x = 0;
                     if self.pic_y < SCREEN_HEIGHT as u8 {
                         self.pic_y += 1;
-                        self.tia_debug.picture_scanline = self.pic_y;
+                        self.tia_debug.picture_scanline = self.pic_y + 1;
                     }
                     self.wo_regs[WORegs::Wsync as usize] = 0;
                     self.wo_regs[WORegs::Hmove as usize] = 0;
@@ -183,7 +187,7 @@ impl Tia {
                 }
 
                 self.pic_x += 1;
-                self.tia_debug.horizontal_counter = self.pic_x;
+                self.tia_debug.horizontal_counter = self.pic_x + 1;
                 self.clock_count += 1;
 
                 if !self.get_wo_reg(WORegs::Wsync).bit(0) { break; }

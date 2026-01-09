@@ -10,6 +10,7 @@ pub struct DebuggerState {
     stepping: bool,
     redraw_requested: bool,
     breakpoints: Vec<u16>,
+    previous_cmd: String,
 }
 
 impl DebuggerState {
@@ -21,6 +22,7 @@ impl DebuggerState {
             stepping: false,
             redraw_requested: false,
             breakpoints: Vec::new(),
+            previous_cmd: String::new(),
         }
     }
 
@@ -56,7 +58,14 @@ impl DebuggerState {
                 print!("> ");
                 io::stdout().flush().unwrap();
                 io::stdin().read_line(&mut input).unwrap();
+                if input == "\n" && !self.previous_cmd.trim().is_empty() {
+                    input = self.previous_cmd.clone();
+                    print!("{input}");
+                    io::stdout().flush().unwrap();
+                }
             }
+
+            self.previous_cmd = input.clone();
 
             let parsed_input = input.trim().split(" ").collect::<Vec<&str>>();
             match parsed_input[0] {
