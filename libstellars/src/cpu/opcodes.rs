@@ -1090,16 +1090,35 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
         /* 0x6B */
         /* ARR #nn */
         let value = immediate(cpu);
-        let anded = and(cpu, value);
-        let high_value = u8::from(cpu.registers.get_c());
-        let result = (high_value << 7) | (anded >> 1);
+        if cpu.registers.get_d() {
+            let and_value = cpu.registers.acc & value;
+            let high_value = u8::from(cpu.registers.get_c());
+            cpu.registers.acc = (high_value << 7) | ((and_value >> 1) & 0x7f);
 
-        cpu.registers.acc = result;
+            cpu.registers.set_n(cpu.registers.get_c());
+            cpu.registers.set_z(cpu.registers.acc == 0);
+            cpu.registers.set_v(((and_value ^ cpu.registers.acc) & 0x40) != 0);
 
-        cpu.registers.set_v(((result >> 6) ^ (result >> 5)) & 1 != 0);
-        cpu.registers.set_c(result & 0x40 != 0);
-        cpu.registers.set_z(result == 0);
-        cpu.registers.set_n(result & 0x80 != 0);
+            if ((and_value & 0x0f) + (and_value & 0x01)) > 0x05 {
+                cpu.registers.acc = (cpu.registers.acc & 0xf0) | ((cpu.registers.acc.wrapping_add(0x06)) & 0x0f);
+            }
+
+            if ((and_value & 0xf0) as u16 + (and_value & 0x10) as u16) > 0x50 {
+                cpu.registers.acc = cpu.registers.acc.wrapping_add(0x60);
+                cpu.registers.set_c(true);
+            } else {
+                cpu.registers.set_c(false);
+            }
+        } else {
+            cpu.registers.acc &= value;
+            let high_value = u8::from(cpu.registers.get_c());
+            cpu.registers.acc = (high_value << 7) | ((cpu.registers.acc >> 1) & 0x7f);
+
+            cpu.registers.set_v(((cpu.registers.acc & 0x40) ^ ((cpu.registers.acc & 0x20) << 1)) != 0);
+            cpu.registers.set_c(cpu.registers.acc & 0x40 != 0);
+            cpu.registers.set_z(cpu.registers.acc == 0);
+            cpu.registers.set_n(cpu.registers.acc & 0x80 != 0);
+        }
     },
     |cpu| {
         /* 0x6C */
