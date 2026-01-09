@@ -5,8 +5,10 @@ use libstellars::Stellar;
 
 pub struct DebuggerState {
     stellars: Arc<RwLock<Stellar>>,
+
     paused: bool,
     stepping: bool,
+    redraw_requested: bool,
     breakpoints: Vec<u16>,
 }
 
@@ -14,8 +16,10 @@ impl DebuggerState {
     pub fn new(stellars: Arc<RwLock<Stellar>>) -> Self {
         Self {
             stellars,
+
             paused: true,
             stepping: false,
+            redraw_requested: false,
             breakpoints: Vec::new(),
         }
     }
@@ -23,6 +27,8 @@ impl DebuggerState {
     pub fn is_paused(&self) -> bool {
         self.paused
     }
+
+    pub fn redraw_requested(&self) -> bool { self.redraw_requested }
 
     pub fn update(&mut self) {
         let debug_data = self.stellars.read().unwrap().get_debug_info();
@@ -35,6 +41,10 @@ impl DebuggerState {
             self.paused = true;
             self.stepping = false;
             println!("Executed opcode {:02X} at {:04X}", debug_data.cpu.executed_opcode.0, debug_data.cpu.executed_opcode.1);
+        }
+
+        if self.redraw_requested {
+            self.redraw_requested = false;
         }
     }
 
@@ -60,6 +70,7 @@ impl DebuggerState {
                     "print:             Print debug informations.\n",
                     "step:              Step through one instruction.\n",
                     "read <address>:    Read the value at <address>.\n",
+                    "display:           Display the picture buffer even if it is still filling up"
                     ))
                 }
                 "break" => {
@@ -114,6 +125,10 @@ impl DebuggerState {
                     } else {
                         println!("Missing argument <address>.");
                     }
+                }
+                "display" => {
+                    self.redraw_requested = true;
+                    break;
                 }
                 &_ => { println!("Unknown command. For help, type \"help\"."); }
             }

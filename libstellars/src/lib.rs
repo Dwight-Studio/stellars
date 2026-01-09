@@ -72,6 +72,10 @@ impl Stellar {
             None
         }
     }
+    
+    pub fn unsafe_get_picture_buffer(&self) -> [Color; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize] {
+        self.tia.read().unwrap().pic_buffer
+    }
 
     #[cfg(not(feature = "test-utils"))]
     pub fn load_rom(&self, path: PathBuf) {
@@ -100,7 +104,8 @@ impl Stellar {
     pub fn get_debug_info(&self) -> StellarDebugInfo {
         StellarDebugInfo {
             cpu: self.cpu.read().unwrap().get_debug_info(),
-            memory: self.memory.read().unwrap().get_debug_info()
+            memory: self.memory.read().unwrap().get_debug_info(),
+            tia: self.tia.read().unwrap().get_debug_info()
         }
     }
 

@@ -52,7 +52,7 @@ impl StellarsRender {
     }
 
     pub fn run(&mut self) {
-        self.libstellars.read().unwrap().load_rom(PathBuf::from("./stellars-gui/resources/ZYX v1 (Chris Read).a26"));
+        self.libstellars.read().unwrap().load_rom(PathBuf::from("./stellars-gui/resources/pong-tennis.bin"));
 
         let stellars = self.libstellars.clone();
         let picture_buffer = self.picture_buffer.clone();
@@ -67,6 +67,12 @@ impl StellarsRender {
             println!("For help, type \"help\".");
             loop {
                 debugger_state.process_debugger_input();
+                
+                if debugger_state.redraw_requested() {
+                    debugger_state.update();
+                    picture_buffer.write().unwrap().copy_from_slice(stellars.read().unwrap().unsafe_get_picture_buffer().as_slice());
+                    window.request_redraw();
+                }
 
                 while !debugger_state.is_paused() {
                     stellars.read().unwrap().execute();

@@ -5,6 +5,7 @@ use crate::registers::Registers;
 pub struct StellarDebugInfo {
     pub cpu: CpuDebug,
     pub memory: MemoryDebug,
+    pub tia: TiaDebug,
 }
 
 impl StellarDebugInfo {
@@ -18,7 +19,9 @@ impl StellarDebugInfo {
         self.cpu.print_flags();
         print!("RAM:");
         self.memory.print_ram();
-        println!("\n---------------------------------------------------------");
+        println!("\n\nTIA:");
+        self.tia.print_raster_position();
+        println!("---------------------------------------------------------");
     }
 }
 
@@ -59,5 +62,20 @@ impl MemoryDebug {
             print!("{:02X} ", self.ram[i]);
         }
         io::stdout().flush().unwrap();
+    }
+}
+
+#[derive(Copy, Clone)]
+pub struct TiaDebug {
+    pub vsync_enabled: bool,
+    pub vblank_enabled: bool,
+    pub picture_scanline: u8,
+    pub horizontal_counter: u8
+}
+
+impl TiaDebug {
+    pub fn print_raster_position(&self) {
+        println!("Scanline: {}\tHorizontal counter: {}", self.picture_scanline, self.horizontal_counter);
+        println!("VSync: {}\tVBlank: {}", self.vsync_enabled, self.vblank_enabled);
     }
 }

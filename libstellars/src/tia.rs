@@ -6,6 +6,7 @@ use crate::tia::colors::NTSC_COLORS;
 use crate::{Color, Stellar, SCREEN_HEIGHT, SCREEN_WIDTH};
 use std::sync::{RwLock, Weak};
 use std::sync::atomic::Ordering;
+use crate::debug::{TiaDebug};
 use crate::tia::counter::Counter;
 use crate::tia::register::Register;
 
@@ -15,29 +16,30 @@ static PM_NUMBER: [&[u8]; 8] = [&[0], &[0, 16], &[0, 32], &[0, 16, 32], &[0, 64]
 #[derive(Copy, Clone)]
 #[repr(u8)]
 pub enum WORegs {
-    Vsync = 0x00,
-    Wsync = 0x02,
-    Nusiz0 = 0x04,
-    Nusiz1 = 0x05,
-    Colup0 = 0x06,
-    Colup1 = 0x07,
-    Colupf = 0x08,
-    Colubk = 0x09,
-    Ctrlpf = 0x0A,
-    Pf0 = 0x0D,
-    Pf1 = 0x0E,
-    Pf2 = 0x0F,
-    Resm0 = 0x12,
-    Resm1 = 0x13,
-    Resbl = 0x14,
-    Enam0 = 0x1D,
-    Enam1 = 0x1E,
-    Enabl = 0x1F,
-    Hmm0 = 0x22,
-    Hmm1 = 0x23,
-    Hmbl = 0x24,
-    Hmove = 0x2A,
-    Hmclr = 0x2B,
+    Vsync   = 0x00,
+    Wsync   = 0x02,
+    Nusiz0  = 0x04,
+    Nusiz1  = 0x05,
+    Colup0  = 0x06,
+    Colup1  = 0x07,
+    Colupf  = 0x08,
+    Colubk  = 0x09,
+    Ctrlpf  = 0x0A,
+    Pf0     = 0x0D,
+    Pf1     = 0x0E,
+    Pf2     = 0x0F,
+    Resm0   = 0x12,
+    Resm1   = 0x13,
+    Resbl   = 0x14,
+    Enam0   = 0x1D,
+    Enam1   = 0x1E,
+    Enabl   = 0x1F,
+    Hmm0    = 0x22,
+    Hmm1    = 0x23,
+    Hmbl    = 0x24,
+    Vdelbl  = 0x27,
+    Hmove   = 0x2A,
+    Hmclr   = 0x2B,
 }
 /*#[repr(u8)]
 pub enum RORegs {
@@ -47,6 +49,7 @@ pub enum RORegs {
 pub struct Tia {
     pub(crate) bus: Option<Weak<RwLock<Stellar>>>,
     pub(crate) pic_buffer: [Color; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize],
+    tia_debug: TiaDebug,
 
     /* Registers */
     wo_regs: [u8; 0x2D],
@@ -69,6 +72,12 @@ impl Tia {
         Self {
             bus: None,
             pic_buffer: [Color { r: 0x00, g: 0x00, b: 0x00 }; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize],
+            tia_debug: TiaDebug {
+                picture_scanline: 0x00,
+                horizontal_counter: 0x00,
+                vsync_enabled: false,
+                vblank_enabled: false
+            },
 
             wo_regs: [0x00; 0x2D],
             // ro_regs: [0; 0x0E],
@@ -122,15 +131,20 @@ impl Tia {
             if self.get_wo_reg(WORegs::Vsync).bit(1) {
                 self.pic_x = 0x00;
                 self.pic_y = 0x00;
+                self.tia_debug.picture_scanline = 0;
+                self.tia_debug.horizontal_counter = 0;
                 self.wo_regs[WORegs::Wsync as usize] = 0;
+                self.tia_debug.vsync_enabled = true;
                 self.vblank = (true, 0);
                 self.clock_count = 684;
                 break;
             }
+            self.tia_debug.vsync_enabled = false;
 
             /* VBLANK has been implemented like that because some ROMS didn't use the VBLANK function
                of the TIA. */
             if self.vblank.0 {
+                self.tia_debug.vblank_enabled = true;
                 loop {
                     self.vblank.1 += 1;
                     self.clock_count += 1;
@@ -141,12 +155,17 @@ impl Tia {
                     if !self.get_wo_reg(WORegs::Wsync).bit(0) { break; }
                 }
                 continue;
+            } else {
+                self.tia_debug.vblank_enabled = false;
             }
 
             loop {
                 if self.pic_x >= 228 {
                     self.pic_x = 0;
-                    if self.pic_y < SCREEN_HEIGHT as u8 {self.pic_y += 1;}
+                    if self.pic_y < SCREEN_HEIGHT as u8 {
+                        self.pic_y += 1;
+                        self.tia_debug.picture_scanline = self.pic_y;
+                    }
                     self.wo_regs[WORegs::Wsync as usize] = 0;
                     self.wo_regs[WORegs::Hmove as usize] = 0;
                 }
@@ -164,6 +183,7 @@ impl Tia {
                 }
 
                 self.pic_x += 1;
+                self.tia_debug.horizontal_counter = self.pic_x;
                 self.clock_count += 1;
 
                 if !self.get_wo_reg(WORegs::Wsync).bit(0) { break; }
@@ -174,6 +194,10 @@ impl Tia {
             self.clock_count -= 59736;
             self.bus.as_ref().unwrap().upgrade().unwrap().read().unwrap().frame_ready.store(true, Ordering::Relaxed);
         }
+    }
+
+    pub fn get_debug_info(&self) -> TiaDebug {
+        self.tia_debug
     }
 
     fn draw_playfield(&mut self) {
