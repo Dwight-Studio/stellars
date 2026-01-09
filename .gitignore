@@ -7,3 +7,4 @@ libstellars/resources/cpu
 stellars-gui/resources/*
 !stellars-gui/resources/missile0.bin
 !stellars-gui/resources/missile0.asm
+!stellars-gui/resources/ZYX v1 (Chris Read).asm
