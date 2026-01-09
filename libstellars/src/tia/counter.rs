@@ -27,16 +27,6 @@ impl Counter {
         }
     }
 
-    /*pub fn decrement(&mut self, decrement: u8) {
-        for _ in 0..decrement {
-            if self.count == 0 {
-                self.count = self.max_count;
-                continue;
-            }
-            self.count -= 1;
-        }
-    }*/
-
     pub fn reset(&mut self) {
         self.count = 0;
     }
