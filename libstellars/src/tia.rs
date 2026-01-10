@@ -28,16 +28,21 @@ pub enum WORegs {
     Pf0     = 0x0D,
     Pf1     = 0x0E,
     Pf2     = 0x0F,
+    Resp0   = 0x10,
+    Resp1   = 0x11,
     Resm0   = 0x12,
     Resm1   = 0x13,
     Resbl   = 0x14,
+    Grp0    = 0x1B,
+    Grp1    = 0x1C,
     Enam0   = 0x1D,
     Enam1   = 0x1E,
     Enabl   = 0x1F,
+    Hmp0    = 0x20,
+    Hmp1    = 0x21,
     Hmm0    = 0x22,
     Hmm1    = 0x23,
     Hmbl    = 0x24,
-    Vdelbl  = 0x27,
     Hmove   = 0x2A,
     Hmclr   = 0x2B,
 }
@@ -64,6 +69,8 @@ pub struct Tia {
     missile0: Object,
     missile1: Object,
     ball: Object,
+    player0: Object,
+    player1: Object,
 }
 
 impl Tia {
@@ -89,6 +96,8 @@ impl Tia {
             missile0: Object::new(),
             missile1: Object::new(),
             ball:     Object::new(),
+            player0:  Object::new(),
+            player1:  Object::new(),
         }
     }
 
@@ -108,6 +117,10 @@ impl Tia {
             self.missile1.counter_reset(false);
         } else if address == WORegs::Resbl as u8 {
             self.ball.counter_reset(true);
+        } else if address == WORegs::Resp0 as u8 {
+            self.player0.counter_reset(false);
+        } else if address == WORegs::Resp1 as u8 {
+            self.player1.counter_reset(false);
         } else if address == WORegs::Hmove as u8 {
             self.wo_regs[address as usize] = 8;
 
@@ -121,10 +134,18 @@ impl Tia {
 
             let fbc_val = (self.get_wo_reg(WORegs::Hmbl).value >> 4) ^ 0x8;
             self.ball.counter_increment(fbc_val);
+
+            let fbc_val = (self.get_wo_reg(WORegs::Hmp0).value >> 4) ^ 0x8;
+            self.player0.counter_increment(fbc_val);
+
+            let fbc_val = (self.get_wo_reg(WORegs::Hmp1).value >> 4) ^ 0x8;
+            self.player1.counter_increment(fbc_val);
         } else if address == WORegs::Hmclr as u8 {
             self.wo_regs[WORegs::Hmm0 as usize] = 0x00;
             self.wo_regs[WORegs::Hmm1 as usize] = 0x00;
             self.wo_regs[WORegs::Hmbl as usize] = 0x00;
+            self.wo_regs[WORegs::Hmp0 as usize] = 0x00;
+            self.wo_regs[WORegs::Hmp1 as usize] = 0x00;
         } else {
             self.wo_regs[address as usize] = value;
         }
@@ -163,6 +184,8 @@ impl Tia {
                     self.missile0.update();
                     self.missile1.update();
                     self.ball.update();
+                    self.player0.update();
+                    self.player1.update();
                 }
 
                 self.pic_x += 1;
@@ -231,7 +254,30 @@ impl Tia {
     }
 
     fn draw_player(&mut self, player: u8) {
-        self.draw_missile(player);
+        let player_can_draw = if player == 0 { self.player0.can_draw() } else { self.player1.can_draw() };
+        let player_color = if player == 0 { self.get_wo_reg(WORegs::Colup0) } else { self.get_wo_reg(WORegs::Colup1) };
+        let player_nb = if player == 0 { self.get_wo_reg(WORegs::Nusiz0).value & 0x7 } else { self.get_wo_reg(WORegs::Nusiz1).value & 0x7 };
+        let player_count = if player == 0 { self.player0.count() } else { self.player1.count() };
+        let player_graphic = if player == 0 { self.get_wo_reg(WORegs::Grp0) } else { self.get_wo_reg(WORegs::Grp1) };
+        let mut triggered = (false, false);
+
+        for trigger in PM_NUMBER[player_nb as usize] {
+            let trigg = trigger + 5;
+            if  player_count >= trigg && player_count - trigg < 8 {
+                triggered = (true, player_graphic.bit(7 - (player_count - trigg)));
+                break;
+            }
+        }
+
+        if player_can_draw && player_graphic.value != 0x00 && triggered.0 {
+            if triggered.1 {
+                self.pic_buffer[self.pic_y as usize * SCREEN_WIDTH as usize + (self.pic_x as usize - 68)] = NTSC_COLORS[player_color.value as usize];
+            } else {
+                self.draw_background();
+            }
+        } else {
+            self.draw_missile(player);
+        }
     }
 
     fn draw_ball(&mut self) {

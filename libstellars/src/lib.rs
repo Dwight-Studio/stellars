@@ -121,10 +121,10 @@ impl Stellar {
     pub(crate) fn read_byte(&self, address: u16) -> u8 {
         let data: u8;
 
-        if address <= 0x0D {
+        /*if address <= 0x0D {
             /*todo!("Input and collision latches")*/
             data = 0xFF;
-        } else if (0x0080..=0x00FF).contains(&address) {
+        } else */if (0x0080..=0x00FF).contains(&address) {
             data = self.memory.read().unwrap().ram[(address - 0x80) as usize]
         } else if (0x0180..=0x01FF).contains(&address) {
             data = self.memory.read().unwrap().ram[(address - 0x180) as usize]

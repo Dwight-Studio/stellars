@@ -9,7 +9,7 @@ impl Object {
     pub fn new() -> Self {
         Self {
             count: 0,
-            can_draw: false,
+            can_draw: true,
         }
     }
 
@@ -18,10 +18,6 @@ impl Object {
         self.can_draw = true;
 
         if self.count >= SCREEN_WIDTH as u8 { self.counter_reset(true); }
-    }
-
-    pub fn count(&self) -> u8 {
-        self.count
     }
 
     pub fn counter_increment(&mut self, increment: u8) {
@@ -33,6 +29,10 @@ impl Object {
     pub fn counter_reset(&mut self, can_draw: bool) {
         self.count = 0;
         self.can_draw = can_draw;
+    }
+
+    pub fn count(&self) -> u8 {
+        self.count
     }
 
     pub fn can_draw(&self) -> bool {
