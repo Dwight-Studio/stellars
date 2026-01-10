@@ -1385,8 +1385,18 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x93 */
         /* SHA (nn),Y */
-        let address = indirect_y(cpu, false);
-        let value = cpu.registers.acc & cpu.registers.x & (((address >> 8) & 0xff) as u8 + 1);
+        let nn = cpu.fetch_byte();
+        let low_nn = cpu.read_byte(u16::from(nn));
+        let high_nn = u16::from(cpu.read_byte(u16::from(nn.wrapping_add(1)))) << 8;
+        cpu.read_byte(high_nn | u16::from(low_nn.wrapping_add(cpu.registers.y)));
+        let mut address = (high_nn | u16::from(low_nn)).wrapping_add(u16::from(cpu.registers.y));
+
+        let value = cpu.registers.acc & cpu.registers.x & ((((high_nn >> 8) & 0xff) as u8).wrapping_add(1));
+
+        if high_nn != address & 0xFF00 {
+            address = (value as u16) << 8 | address & 0xFF;
+        }
+
         cpu.write_byte(address, value);
     },
     |cpu| {
@@ -1438,16 +1448,35 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x9B */
         /* TAS nnnn,Y */
-        let address = absolute_y(cpu, false);
-        cpu.push_stack(cpu.registers.acc & cpu.registers.x);
-        let value = cpu.read_byte(address);
-        cpu.write_byte(address, cpu.registers.acc & cpu.registers.x & value);
+        cpu.registers.sp = cpu.registers.acc & cpu.registers.x;
+
+        let low_nn = cpu.fetch_byte();
+        let high_nn = u16::from(cpu.fetch_byte()) << 8;
+        cpu.read_byte(high_nn | u16::from(low_nn.wrapping_add(cpu.registers.y)));
+        let mut address = (high_nn | u16::from(low_nn)).wrapping_add(u16::from(cpu.registers.y));
+
+        let value = cpu.registers.acc & cpu.registers.x & ((((high_nn >> 8) & 0xff) as u8).wrapping_add(1));
+
+        if high_nn != address & 0xFF00 {
+            address = (value as u16) << 8 | address & 0xFF;
+        }
+
+        cpu.write_byte(address, value);
     },
     |cpu| {
         /* 0x9C */
         /* SHY nnnn,X */
-        let address = absolute_x(cpu, false);
-        let value = cpu.registers.y & (((address >> 8) & 0xff) as u8 + 1);
+        let low_nn = cpu.fetch_byte();
+        let high_nn = u16::from(cpu.fetch_byte()) << 8;
+        cpu.read_byte(high_nn | u16::from(low_nn.wrapping_add(cpu.registers.x)));
+        let mut address = (high_nn | u16::from(low_nn)).wrapping_add(u16::from(cpu.registers.x));
+
+        let value = cpu.registers.y & ((((high_nn >> 8) & 0xff) as u8).wrapping_add(1));
+
+        if high_nn != address & 0xFF00 {
+            address = (value as u16) << 8 | address & 0xFF;
+        }
+
         cpu.write_byte(address, value);
     },
     |cpu| {
@@ -1459,15 +1488,33 @@ pub static OPCODES: [fn(&mut Cpu); 0x100] = {
     |cpu| {
         /* 0x9E */
         /* SHX nnnn,Y */
-        let address = absolute_y(cpu, false);
-        let value = cpu.registers.x & (((address >> 8) & 0xff) as u8 + 1);
+        let low_nn = cpu.fetch_byte();
+        let high_nn = u16::from(cpu.fetch_byte()) << 8;
+        cpu.read_byte(high_nn | u16::from(low_nn.wrapping_add(cpu.registers.y)));
+        let mut address = (high_nn | u16::from(low_nn)).wrapping_add(u16::from(cpu.registers.y));
+
+        let value = cpu.registers.x & ((((high_nn >> 8) & 0xff) as u8).wrapping_add(1));
+
+        if high_nn != address & 0xFF00 {
+            address = (value as u16) << 8 | address & 0xFF;
+        }
+
         cpu.write_byte(address, value);
     },
     |cpu| {
         /* 0x9F */
         /* SHA nnnn,Y */
-        let address = absolute_y(cpu, true);
-        let value = cpu.registers.acc & cpu.registers.x & (((address >> 8) & 0xff) as u8 + 1);
+        let low_nn = cpu.fetch_byte();
+        let high_nn = u16::from(cpu.fetch_byte()) << 8;
+        cpu.read_byte(high_nn | u16::from(low_nn.wrapping_add(cpu.registers.y)));
+        let mut address = (high_nn | u16::from(low_nn)).wrapping_add(u16::from(cpu.registers.y));
+
+        let value = cpu.registers.acc & cpu.registers.x & ((((high_nn >> 8) & 0xff) as u8).wrapping_add(1));
+
+        if high_nn != address & 0xFF00 {
+            address = (value as u16) << 8 | address & 0xFF;
+        }
+
         cpu.write_byte(address, value);
     },
     |cpu| {
