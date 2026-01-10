@@ -21,7 +21,7 @@ mod pia;
 mod debug;
 
 pub const SCREEN_WIDTH: u32 = 160;
-pub const SCREEN_HEIGHT: u32 = 192;
+pub const SCREEN_HEIGHT: u32 = 262;
 
 #[derive(Copy, Clone)]
 pub struct Color {

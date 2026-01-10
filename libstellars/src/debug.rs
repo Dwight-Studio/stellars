@@ -69,8 +69,8 @@ impl MemoryDebug {
 pub struct TiaDebug {
     pub vsync_enabled: bool,
     pub vblank_enabled: bool,
-    pub picture_scanline: u8,
-    pub horizontal_counter: u8
+    pub picture_scanline: u16,
+    pub horizontal_counter: u16
 }
 
 impl TiaDebug {
