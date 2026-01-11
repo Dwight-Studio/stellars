@@ -1,6 +1,7 @@
 mod colors;
 mod register;
 mod object;
+mod audio;
 
 use crate::tia::colors::NTSC_COLORS;
 use crate::{Color, Stellar, SCREEN_HEIGHT, SCREEN_WIDTH};
@@ -227,12 +228,13 @@ impl Tia {
     }
 
     fn draw_missile(&mut self, missile: u8) {
-        let missile_can_draw = if missile == 0 { self.missile0.can_draw() } else { self.missile1.can_draw() };
-        let missile_enable = if missile == 0 { self.get_wo_reg(WORegs::Enam0) } else { self.get_wo_reg(WORegs::Enam1) };
-        let missile_color = if missile == 0 { self.get_wo_reg(WORegs::Colup0) } else { self.get_wo_reg(WORegs::Colup1) };
-        let (missile_size, missile_nb) = if missile == 0 { (self.get_wo_reg(WORegs::Nusiz0).value >> 4 & 0x3, self.get_wo_reg(WORegs::Nusiz0).value & 0x7) } else { (self.get_wo_reg(WORegs::Nusiz1).value >> 4 & 0x3, self.get_wo_reg(WORegs::Nusiz1).value & 0x7) };
-        let missile_count = if missile == 0 { self.missile0.count() } else { self.missile1.count() };
-        let mut triggered = false;
+        let missile_can_draw            = if missile == 0 { self.missile0.can_draw() } else { self.missile1.can_draw() };
+        let missile_enable              = if missile == 0 { self.get_wo_reg(WORegs::Enam0) } else { self.get_wo_reg(WORegs::Enam1) };
+        let missile_color               = if missile == 0 { self.get_wo_reg(WORegs::Colup0) } else { self.get_wo_reg(WORegs::Colup1) };
+        let (missile_size, missile_nb)  = if missile == 0 { (self.get_wo_reg(WORegs::Nusiz0).value >> 4 & 0x3, self.get_wo_reg(WORegs::Nusiz0).value & 0x7) } else { (self.get_wo_reg(WORegs::Nusiz1).value >> 4 & 0x3, self.get_wo_reg(WORegs::Nusiz1).value & 0x7) };
+        let missile_count               = if missile == 0 { self.missile0.count() } else { self.missile1.count() };
+        let mut triggered               = false;
+
 
         for trigger in PM_NUMBER[missile_nb as usize] {
             let trigg = trigger + 4;
@@ -255,11 +257,12 @@ impl Tia {
 
     fn draw_player(&mut self, player: u8) {
         let player_can_draw = if player == 0 { self.player0.can_draw() } else { self.player1.can_draw() };
-        let player_color = if player == 0 { self.get_wo_reg(WORegs::Colup0) } else { self.get_wo_reg(WORegs::Colup1) };
-        let player_nb = if player == 0 { self.get_wo_reg(WORegs::Nusiz0).value & 0x7 } else { self.get_wo_reg(WORegs::Nusiz1).value & 0x7 };
-        let player_count = if player == 0 { self.player0.count() } else { self.player1.count() };
-        let player_graphic = if player == 0 { self.get_wo_reg(WORegs::Grp0) } else { self.get_wo_reg(WORegs::Grp1) };
-        let mut triggered = (false, false);
+        let player_color    = if player == 0 { self.get_wo_reg(WORegs::Colup0) } else { self.get_wo_reg(WORegs::Colup1) };
+        let player_nb       = if player == 0 { self.get_wo_reg(WORegs::Nusiz0).value & 0x7 } else { self.get_wo_reg(WORegs::Nusiz1).value & 0x7 };
+        let player_count    = if player == 0 { self.player0.count() } else { self.player1.count() };
+        let player_graphic  = if player == 0 { self.get_wo_reg(WORegs::Grp0) } else { self.get_wo_reg(WORegs::Grp1) };
+        let mut triggered   = (false, false);
+
 
         for trigger in PM_NUMBER[player_nb as usize] {
             let trigg = trigger + 5;

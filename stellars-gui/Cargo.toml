@@ -7,3 +7,4 @@ edition = "2024"
 libstellars = {path = "../libstellars"}
 winit = "0.30.12"
 pixels = "0.15.0"
+cpal = "0.17.1"

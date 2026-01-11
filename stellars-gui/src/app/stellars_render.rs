@@ -3,6 +3,8 @@ use pixels::{wgpu, Pixels, PixelsBuilder, SurfaceTexture};
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
+use cpal::{BufferSize, FromSample, Sample, Stream, StreamConfig, StreamError};
+use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use winit::dpi::PhysicalSize;
 use winit::event::ElementState;
 use winit::keyboard::{KeyCode, PhysicalKey};
@@ -16,6 +18,8 @@ pub struct StellarsRender {
     picture_buffer: Arc<RwLock<[Color; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize]>>,
     scale_factor: (u32, u32),
     target_framerate: f64,
+
+    audio_stream: Option<Stream>,
 
     libstellars: Arc<RwLock<Stellar>>,
 }
@@ -40,12 +44,29 @@ impl StellarsRender {
         // Strange fix for blank window on Windows
         pixels.enable_vsync(false);
 
+        let mut audio_stream: Option<Stream> = None;
+        if let Some(device) = cpal::default_host().default_output_device() {
+            let stream_config = StreamConfig {
+                channels: 1,
+                sample_rate: 44100,
+                buffer_size: BufferSize::Default
+            };
+            let stream = device.build_output_stream(&stream_config, audio_callback::<u8>, audio_error, None).expect("Output stream cannot be created.");
+            stream.play().unwrap();
+
+            audio_stream = Some(stream);
+        } else {
+            println!("No audio output device available.");
+        }
+
         Self {
             window,
             render_buffer: pixels,
             picture_buffer: Arc::new(RwLock::new([Color { r: 0x00, g: 0x00, b: 0x00 }; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize])),
             scale_factor,
             target_framerate: 60.0,
+
+            audio_stream,
 
             libstellars
         }
@@ -145,4 +166,26 @@ impl StellarsRender {
 
         self.libstellars.read().unwrap().update_inputs(input, pressed);
     }
+}
+
+static mut SINE_INDEX: f64 = 0.0;
+fn audio_callback<T>(data: &mut [T], _: &cpal::OutputCallbackInfo)
+where T: Sample + FromSample<u8>
+{
+    let frequency = 440.0;
+    let incr = frequency / 44100.0;
+
+    for frame in data.chunks_mut(1) {
+        for sample in frame.iter_mut() {
+            unsafe {
+                *sample = T::from_sample(if f64::sin(2.0 * std::f64::consts::PI * SINE_INDEX) < 0.0 {0} else {1});
+                SINE_INDEX += incr;
+                if SINE_INDEX > 1.0 {SINE_INDEX -= 1.0;}
+            };
+        }
+    }
+}
+
+fn audio_error(err: StreamError) {
+    eprintln!("Audio error: {}", err);
 }
