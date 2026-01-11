@@ -45,7 +45,7 @@ impl StellarsRender {
         pixels.enable_vsync(false);
 
         let mut audio_stream: Option<Stream> = None;
-        if let Some(device) = cpal::default_host().default_output_device() {
+        /*if let Some(device) = cpal::default_host().default_output_device() {
             let stream_config = StreamConfig {
                 channels: 1,
                 sample_rate: 44100,
@@ -57,7 +57,7 @@ impl StellarsRender {
             audio_stream = Some(stream);
         } else {
             println!("No audio output device available.");
-        }
+        }*/
 
         Self {
             window,
