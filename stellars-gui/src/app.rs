@@ -1,12 +1,13 @@
 use crate::app::stellars_render::StellarsRender;
+use libstellars::controller::InputDevice;
+use libstellars::{Stellar, SCREEN_HEIGHT, SCREEN_WIDTH};
 use std::process::exit;
 use std::sync::{Arc, RwLock};
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
-use winit::event::{WindowEvent};
-use winit::event_loop::{ActiveEventLoop};
+use winit::event::WindowEvent;
+use winit::event_loop::ActiveEventLoop;
 use winit::window::{Window, WindowId};
-use libstellars::{Stellar, SCREEN_HEIGHT, SCREEN_WIDTH};
 
 mod stellars_render;
 mod debugger_state;
@@ -14,6 +15,7 @@ mod debugger_state;
 pub struct App {
     libstellars: Arc<RwLock<Stellar>>,
     stellars_render: Option<StellarsRender>,
+    input_device: InputDevice
 }
 
 impl App {
@@ -21,6 +23,7 @@ impl App {
         Self {
             libstellars: Stellar::new(),
             stellars_render: None,
+            input_device: InputDevice::Joystick
         }
     }
 }
@@ -56,7 +59,7 @@ impl ApplicationHandler for App {
             WindowEvent::KeyboardInput {event,..} => {
                 let keycode = event.physical_key;
                 let pressed = event.state;
-                stellars_render.update_inputs(keycode, pressed);
+                stellars_render.update_inputs(keycode, pressed, self.input_device);
             }
             WindowEvent::RedrawRequested => {
                 stellars_render.render();
