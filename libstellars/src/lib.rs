@@ -121,14 +121,14 @@ impl Stellar {
     pub(crate) fn read_byte(&self, address: u16) -> u8 {
         let data: u8;
 
-        /*if address <= 0x0D {
+        if address <= 0x0B {
             /*todo!("Input and collision latches")*/
             data = 0xFF;
-        } else */if (0x0080..=0x00FF).contains(&address) {
+        } else if (0x0080..=0x00FF).contains(&address) {
             data = self.memory.read().unwrap().ram[(address - 0x80) as usize]
         } else if (0x0180..=0x01FF).contains(&address) {
             data = self.memory.read().unwrap().ram[(address - 0x180) as usize]
-        } else if address == 0x0280 || address == 0x000C {
+        } else if (0x0280..=0x0283).contains(&address) || (0x000C..=0x000D).contains(&address) {
             data = self.controller.read().unwrap().read_inputs(address);
         } else if (0x0284..=0x0285).contains(&address) || (0x0294..=0x0297).contains(&address) {
             data = self.pia.write().unwrap().read(address);
