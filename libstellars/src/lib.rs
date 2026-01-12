@@ -77,6 +77,10 @@ impl Stellar {
         self.tia.read().unwrap().pic_buffer
     }
 
+    pub fn get_channel_1_samples(&self, sample_rate: u64, number: usize) -> Vec<u8> {
+        self.tia.write().unwrap().get_channel_1_samples(sample_rate, number)
+    }
+
     #[cfg(not(feature = "test-utils"))]
     pub fn load_rom(&self, path: PathBuf) {
         match fs::read(path.clone()) {

@@ -10,4 +10,10 @@ impl Register {
     pub fn bit(&self, n: u8) -> bool {
         (self.value >> n) & 0x1 == 1
     }
+
+    pub fn reverse_bits(&self) -> Self {
+        Self {
+            value: self.value.reverse_bits()
+        }
+    }
 }

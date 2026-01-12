@@ -1,7 +1,6 @@
 mod colors;
 mod register;
 mod object;
-mod audio;
 
 use crate::tia::colors::NTSC_COLORS;
 use crate::{Color, Stellar, SCREEN_HEIGHT, SCREEN_WIDTH};
@@ -13,6 +12,8 @@ use crate::tia::register::Register;
 
 static PMB_SIZE: [u8; 4] = [1, 2, 4, 8];
 static PM_NUMBER: [&[u8]; 8] = [&[0], &[0, 16], &[0, 32], &[0, 16, 32], &[0, 64], &[0, 8], &[0, 32, 64], &[0, 8, 16, 32]];
+
+static NTSC_TIA_AUDIO_CLOCK: u16 = 31399;
 
 #[derive(Copy, Clone)]
 #[repr(u8)]
@@ -26,6 +27,8 @@ pub enum WORegs {
     Colupf  = 0x08,
     Colubk  = 0x09,
     Ctrlpf  = 0x0A,
+    Refp0   = 0x0B,
+    Refp1   = 0x0C,
     Pf0     = 0x0D,
     Pf1     = 0x0E,
     Pf2     = 0x0F,
@@ -34,6 +37,10 @@ pub enum WORegs {
     Resm0   = 0x12,
     Resm1   = 0x13,
     Resbl   = 0x14,
+    Audc0   = 0x15,
+    Audc1   = 0x16,
+    Audf0   = 0x17,
+    Audf1   = 0x18,
     Grp0    = 0x1B,
     Grp1    = 0x1C,
     Enam0   = 0x1D,
@@ -72,6 +79,13 @@ pub struct Tia {
     ball: Object,
     player0: Object,
     player1: Object,
+
+    ch1_index: f64,
+    prev_ch1_index: f64,
+    ch1_poly_4: u8,
+    ch1_poly_5: u8,
+    ch1_poly_9: u16,
+    ch1_square: u8,
 }
 
 impl Tia {
@@ -99,6 +113,13 @@ impl Tia {
             ball:     Object::new(),
             player0:  Object::new(),
             player1:  Object::new(),
+
+            ch1_index: 0.0,
+            prev_ch1_index: 0.0,
+            ch1_square: 0,
+            ch1_poly_4: 0xF,
+            ch1_poly_5: 0x1F,
+            ch1_poly_9: 0x1FF
         }
     }
 
@@ -203,6 +224,82 @@ impl Tia {
         }
     }
 
+    pub fn get_channel_1_samples(&mut self, sample_rate: u64, number: usize) -> Vec<u8> {
+        let mut samples: Vec<u8> = Vec::new();
+        let frequency: f64 = NTSC_TIA_AUDIO_CLOCK as f64 / ((self.get_wo_reg(WORegs::Audf0).value & 0x1F) + 1) as f64; // FIXME: That's not gonna work when Audf0 == 0
+        let mut incr: f64 = frequency / sample_rate as f64;
+
+
+        // FIXME: Volumes should be set according to AUDV0
+        for _ in 0..number {
+            let trigger_change = self.prev_ch1_index < 0.5 && self.ch1_index >= 0.5;
+            match self.get_wo_reg(WORegs::Audc0).value {
+                0x0 | 0xB => {
+                    samples.push(5);
+                }
+                0x1 => {
+                    if  trigger_change {
+                        self.ch1_poly_4 = ((self.ch1_poly_4 >> 1 & 0x1) ^ (self.ch1_poly_4 & 0x1)) << 3 | self.ch1_poly_4 >> 1;
+                    }
+                    samples.push(if self.ch1_poly_4 & 0x1 == 0 {0} else {5} );
+                }
+                0x2 => {
+                    incr = (frequency / 15.0) / sample_rate as f64;
+                    if  trigger_change {
+                        self.ch1_poly_4 = ((self.ch1_poly_4 >> 1 & 0x1) ^ (self.ch1_poly_4 & 0x1)) << 3 | self.ch1_poly_4 >> 1;
+                    }
+                    samples.push(if self.ch1_poly_4 & 0x1 == 0 {0} else {5} );
+                }
+                // TODO: Add 0x3
+                0x4 | 0x5 => {
+                    incr = (frequency / 2.0) / sample_rate as f64;
+                    if  trigger_change { self.ch1_square ^= 0x1; }
+                    samples.push(if self.ch1_square & 0x1 == 0 {0} else {5} );
+                }
+                0x6 | 0xA => {
+                    incr = (frequency / 31.0) / sample_rate as f64;
+                    if  trigger_change { self.ch1_square ^= 0x1; }
+                    samples.push(if self.ch1_square & 0x1 == 0 {0} else {5} );
+                }
+                0x7 | 0x9 => {
+                    if  trigger_change {
+                        self.ch1_poly_5 = ((self.ch1_poly_5 >> 2 & 0x1) ^ (self.ch1_poly_5 & 0x1)) << 4 | self.ch1_poly_5 >> 1;
+                    }
+                    samples.push(if self.ch1_poly_5 & 0x1 == 0 {0} else {5} );
+                }
+                0x8 => {
+                    if  trigger_change {
+                        self.ch1_poly_9 = ((self.ch1_poly_9 >> 4 & 0x1) ^ (self.ch1_poly_9 & 0x1)) << 8 | self.ch1_poly_9 >> 1;
+                    }
+                    samples.push(if self.ch1_poly_9 & 0x1 == 0 {0} else {5} );
+                }
+                0xC | 0xD => {
+                    incr = (frequency / 6.0) / sample_rate as f64;
+                    if  trigger_change { self.ch1_square ^= 0x1; }
+                    samples.push(if self.ch1_square & 0x1 == 0 {0} else {5} );
+                }
+                0xE => {
+                    incr = (frequency / 93.0) / sample_rate as f64;
+                    if  trigger_change { self.ch1_square ^= 0x1; }
+                    samples.push(if self.ch1_square & 0x1 == 0 {0} else {5} );
+                }
+                0xF => {
+                    incr = (frequency / 6.0) / sample_rate as f64;
+                    if  trigger_change {
+                        self.ch1_poly_5 = ((self.ch1_poly_5 >> 2 & 0x1) ^ (self.ch1_poly_5 & 0x1)) << 4 | self.ch1_poly_5 >> 1;
+                    }
+                    samples.push(if self.ch1_poly_5 & 0x1 == 0 {0} else {5} );
+                }
+                _ => {}
+            }
+            self.prev_ch1_index = self.ch1_index;
+            self.ch1_index += incr;
+            if self.ch1_index > 1.0 { self.ch1_index -= 1.0 };
+        }
+
+        samples
+    }
+
     pub fn get_debug_info(&self) -> TiaDebug {
         self.tia_debug
     }
@@ -260,9 +357,11 @@ impl Tia {
         let player_color    = if player == 0 { self.get_wo_reg(WORegs::Colup0) } else { self.get_wo_reg(WORegs::Colup1) };
         let player_nb       = if player == 0 { self.get_wo_reg(WORegs::Nusiz0).value & 0x7 } else { self.get_wo_reg(WORegs::Nusiz1).value & 0x7 };
         let player_count    = if player == 0 { self.player0.count() } else { self.player1.count() };
-        let player_graphic  = if player == 0 { self.get_wo_reg(WORegs::Grp0) } else { self.get_wo_reg(WORegs::Grp1) };
+        let mut player_graphic = if player == 0 { self.get_wo_reg(WORegs::Grp0) } else { self.get_wo_reg(WORegs::Grp1) };
+        let player_refl     = if player == 0 { self.get_wo_reg(WORegs::Refp0) } else { self.get_wo_reg(WORegs::Refp1) };
         let mut triggered   = (false, false);
 
+        if player_refl.bit(3) { player_graphic = player_graphic.reverse_bits(); }
 
         for trigger in PM_NUMBER[player_nb as usize] {
             let trigg = trigger + 5;
@@ -272,12 +371,8 @@ impl Tia {
             }
         }
 
-        if player_can_draw && player_graphic.value != 0x00 && triggered.0 {
-            if triggered.1 {
-                self.pic_buffer[self.pic_y as usize * SCREEN_WIDTH as usize + (self.pic_x as usize - 68)] = NTSC_COLORS[player_color.value as usize];
-            } else {
-                self.draw_background();
-            }
+        if player_can_draw && player_graphic.value != 0x00 && triggered.0 && triggered.1 {
+            self.pic_buffer[self.pic_y as usize * SCREEN_WIDTH as usize + (self.pic_x as usize - 68)] = NTSC_COLORS[player_color.value as usize];
         } else {
             self.draw_missile(player);
         }

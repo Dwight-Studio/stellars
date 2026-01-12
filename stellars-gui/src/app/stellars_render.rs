@@ -3,7 +3,7 @@ use pixels::{wgpu, Pixels, PixelsBuilder, SurfaceTexture};
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
-use cpal::{BufferSize, FromSample, Sample, Stream, StreamConfig, StreamError};
+use cpal::{FromSample, Sample, SampleRate, Stream, StreamError};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use winit::dpi::PhysicalSize;
 use winit::event::ElementState;
@@ -46,19 +46,25 @@ impl StellarsRender {
         pixels.enable_vsync(false);
 
         let mut audio_stream: Option<Stream> = None;
-        /*if let Some(device) = cpal::default_host().default_output_device() {
-            let stream_config = StreamConfig {
-                channels: 1,
-                sample_rate: 44100,
-                buffer_size: BufferSize::Default
-            };
-            let stream = device.build_output_stream(&stream_config, audio_callback::<u8>, audio_error, None).expect("Output stream cannot be created.");
+        if  let Some(device) = cpal::default_host().default_output_device() &&
+            let Ok(mut configs) = device.supported_output_configs() &&
+            let Some(config) = configs.next()
+        {
+            let sample_rate = config.with_max_sample_rate().sample_rate();
+            let stellars = libstellars.clone();
+            let stream = device.build_output_stream(
+                &config.with_max_sample_rate().config(),
+                move |data: &mut [u8], _: &cpal::OutputCallbackInfo| {
+                    audio_callback(data, sample_rate, stellars.clone());
+                },
+                audio_error,
+                None).expect("Output stream cannot be created.");
             stream.play().unwrap();
 
             audio_stream = Some(stream);
         } else {
             println!("No audio output device available.");
-        }*/
+        }
 
         Self {
             window,
@@ -74,7 +80,7 @@ impl StellarsRender {
     }
 
     pub fn run(&mut self) {
-        self.libstellars.read().unwrap().load_rom(PathBuf::from("./stellars-gui/resources/pong-tennis.bin"));
+        self.libstellars.read().unwrap().load_rom(PathBuf::from("./stellars-gui/resources/Air_Raid.a26"));
 
         let stellars = self.libstellars.clone();
         let picture_buffer = self.picture_buffer.clone();
@@ -190,20 +196,18 @@ impl StellarsRender {
     }
 }
 
-static mut SINE_INDEX: f64 = 0.0;
-fn audio_callback<T>(data: &mut [T], _: &cpal::OutputCallbackInfo)
-where T: Sample + FromSample<u8>
+fn audio_callback<T>(data: &mut [T], sample_rate: SampleRate, stellars: Arc<RwLock<Stellar>>)
+    where T: Sample + FromSample<u8>
 {
-    let frequency = 440.0;
-    let incr = frequency / 44100.0;
+    let samples = stellars.read().unwrap().get_channel_1_samples(sample_rate as u64, data.len());
 
-    for frame in data.chunks_mut(1) {
+    for (sample_index, frame) in data.chunks_mut(1).enumerate() {
         for sample in frame.iter_mut() {
-            unsafe {
-                *sample = T::from_sample(if f64::sin(2.0 * std::f64::consts::PI * SINE_INDEX) < 0.0 {0} else {1});
-                SINE_INDEX += incr;
-                if SINE_INDEX > 1.0 {SINE_INDEX -= 1.0;}
-            };
+            if samples.is_empty() {
+                *sample = Sample::EQUILIBRIUM;
+            } else {
+                *sample = T::from_sample(samples[sample_index]);
+            }
         }
     }
 }
