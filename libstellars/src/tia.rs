@@ -283,7 +283,7 @@ impl Tia {
                     incr = (frequency / 3.0) / sample_rate as f64;
                     sample = if self.ch1_poly_5 & 0x1 == 0 {0} else {volume};
                 }
-                _ => {println!("B")}
+                _ => {}
             }
             samples.push(sample);
             self.prev_ch1_index = self.ch1_index;
