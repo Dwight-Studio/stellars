@@ -1,4 +1,3 @@
-use std::fs;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -9,7 +8,6 @@ use crate::tia::Tia;
 
 #[cfg(feature = "test-utils")]
 use serde_json::{Map, Value};
-use crate::cartridge::Cartridge;
 use crate::debug::StellarDebugInfo;
 use crate::pia::Pia;
 
@@ -20,7 +18,6 @@ mod tia;
 pub mod controller;
 mod pia;
 mod debug;
-mod cartridge;
 
 pub const SCREEN_WIDTH: u32 = 160;
 pub const SCREEN_HEIGHT: u32 = 262;
@@ -38,7 +35,6 @@ pub struct Stellar {
     cpu: Arc<RwLock<Cpu>>,
     controller: Arc<RwLock<Controller>>,
     pia: Arc<RwLock<Pia>>,
-    cartridge: Arc<RwLock<Cartridge>>,
     
     frame_ready: AtomicBool,
 }
@@ -51,14 +47,13 @@ impl Stellar {
             cpu: Arc::new(RwLock::new(Cpu::new())),
             controller: Arc::new(RwLock::new(Controller::new())),
             pia: Arc::new(RwLock::new(Pia::new())),
-            cartridge: Arc::new(RwLock::new(Cartridge::new())),
             
             frame_ready: AtomicBool::new(false),
         }));
 
+        bus.read().unwrap().memory.write().unwrap().bus = Some(Arc::downgrade(&bus));
         bus.read().unwrap().tia.write().unwrap().bus = Some(Arc::downgrade(&bus));
         bus.read().unwrap().cpu.write().unwrap().bus = Some(Arc::downgrade(&bus));
-        bus.read().unwrap().cartridge.write().unwrap().bus = Some(Arc::downgrade(&bus));
 
         bus
     }
@@ -88,7 +83,7 @@ impl Stellar {
 
     #[cfg(not(feature = "test-utils"))]
     pub fn load_rom(&self, path: PathBuf) {
-        self.cartridge.write().unwrap().load_rom(path);
+        self.memory.write().unwrap().load_rom(path);
     }
 
     pub fn update_inputs(&self, input: Input, pressed: bool) {
@@ -113,6 +108,8 @@ impl Stellar {
 
     #[cfg(not(feature = "test-utils"))]
     pub(crate) fn read_byte(&self, address: u16) -> u8 {
+        self.memory.write().unwrap().check_bank_switching(address);
+
         let data: u8;
 
         if address <= 0x0B {
@@ -127,7 +124,7 @@ impl Stellar {
         } else if (0x0284..=0x0285).contains(&address) || (0x0294..=0x0297).contains(&address) {
             data = self.pia.write().unwrap().read(address);
         } else if address >= 0xF000 {
-            data = self.memory.read().unwrap().game_rom[(address - 0xF000) as usize]
+            data = self.memory.read().unwrap().read_game_rom((address - 0xF000) as usize);
         } else {
             data = 0xFF;
             // TODO: Reading at unknown address

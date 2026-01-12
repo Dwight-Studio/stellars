@@ -80,7 +80,7 @@ impl StellarsRender {
     }
 
     pub fn run(&mut self) {
-        self.libstellars.read().unwrap().load_rom(PathBuf::from("./stellars-gui/resources/Air_Raid.a26"));
+        self.libstellars.read().unwrap().load_rom(PathBuf::from("./stellars-gui/resources/2k/tennis.a26"));
 
         let stellars = self.libstellars.clone();
         let picture_buffer = self.picture_buffer.clone();
