@@ -41,6 +41,8 @@ pub enum WORegs {
     Audc1   = 0x16,
     Audf0   = 0x17,
     Audf1   = 0x18,
+    Audv0   = 0x19,
+    Audv1   = 0x1A,
     Grp0    = 0x1B,
     Grp1    = 0x1C,
     Enam0   = 0x1D,
@@ -186,8 +188,10 @@ impl Tia {
             loop {
                 if self.pic_x >= 228 {
                     self.pic_x = 0;
-                    self.pic_y += 1;
-                    self.tia_debug.picture_scanline = self.pic_y + 1;
+                    if self.pic_y <= 262 {
+                        self.pic_y += 1;
+                        self.tia_debug.picture_scanline = self.pic_y + 1;
+                    }
                     self.wo_regs[WORegs::Wsync as usize] = 0;
                     self.wo_regs[WORegs::Hmove as usize] = 0;
                 }
@@ -226,72 +230,62 @@ impl Tia {
 
     pub fn get_channel_1_samples(&mut self, sample_rate: u64, number: usize) -> Vec<u8> {
         let mut samples: Vec<u8> = Vec::new();
-        let frequency: f64 = NTSC_TIA_AUDIO_CLOCK as f64 / ((self.get_wo_reg(WORegs::Audf0).value & 0x1F) + 1) as f64; // FIXME: That's not gonna work when Audf0 == 0
-        let mut incr: f64 = frequency / sample_rate as f64;
 
-
-        // FIXME: Volumes should be set according to AUDV0
         for _ in 0..number {
+            let frequency: f64 = NTSC_TIA_AUDIO_CLOCK as f64 / ((self.get_wo_reg(WORegs::Audf0).value & 0x1F) + 1) as f64;
+            let mut incr: f64 = frequency / sample_rate as f64;
+            let volume: u8 = self.get_wo_reg(WORegs::Audv0).value * 2;
             let trigger_change = self.prev_ch1_index < 0.5 && self.ch1_index >= 0.5;
+            let mut sample = 0;
+
+            if trigger_change {
+                self.ch1_square ^= 0x1;
+                self.ch1_poly_4 = ((self.ch1_poly_4 >> 1 & 0x1) ^ (self.ch1_poly_4 & 0x1)) << 3 | self.ch1_poly_4 >> 1;
+                self.ch1_poly_5 = ((self.ch1_poly_5 >> 2 & 0x1) ^ (self.ch1_poly_5 & 0x1)) << 4 | self.ch1_poly_5 >> 1;
+                self.ch1_poly_9 = ((self.ch1_poly_9 >> 4 & 0x1) ^ (self.ch1_poly_9 & 0x1)) << 8 | self.ch1_poly_9 >> 1;
+            }
+
             match self.get_wo_reg(WORegs::Audc0).value {
                 0x0 | 0xB => {
-                    samples.push(5);
+                    sample = volume;
                 }
                 0x1 => {
-                    if  trigger_change {
-                        self.ch1_poly_4 = ((self.ch1_poly_4 >> 1 & 0x1) ^ (self.ch1_poly_4 & 0x1)) << 3 | self.ch1_poly_4 >> 1;
-                    }
-                    samples.push(if self.ch1_poly_4 & 0x1 == 0 {0} else {5} );
+                    sample = if self.ch1_poly_4 & 0x1 == 0 {0} else {volume};
                 }
                 0x2 => {
                     incr = (frequency / 15.0) / sample_rate as f64;
-                    if  trigger_change {
-                        self.ch1_poly_4 = ((self.ch1_poly_4 >> 1 & 0x1) ^ (self.ch1_poly_4 & 0x1)) << 3 | self.ch1_poly_4 >> 1;
-                    }
-                    samples.push(if self.ch1_poly_4 & 0x1 == 0 {0} else {5} );
+                    sample = if self.ch1_poly_4 & 0x1 == 0 {0} else {volume};
                 }
                 // TODO: Add 0x3
                 0x4 | 0x5 => {
-                    incr = (frequency / 2.0) / sample_rate as f64;
-                    if  trigger_change { self.ch1_square ^= 0x1; }
-                    samples.push(if self.ch1_square & 0x1 == 0 {0} else {5} );
+                    incr = (frequency / 1.0) / sample_rate as f64;
+                    sample = if self.ch1_square & 0x1 == 0 {0} else {volume};
                 }
                 0x6 | 0xA => {
-                    incr = (frequency / 31.0) / sample_rate as f64;
-                    if  trigger_change { self.ch1_square ^= 0x1; }
-                    samples.push(if self.ch1_square & 0x1 == 0 {0} else {5} );
+                    incr = (frequency / 15.5) / sample_rate as f64;
+                    sample = if self.ch1_square & 0x1 == 0 {0} else {volume};
                 }
                 0x7 | 0x9 => {
-                    if  trigger_change {
-                        self.ch1_poly_5 = ((self.ch1_poly_5 >> 2 & 0x1) ^ (self.ch1_poly_5 & 0x1)) << 4 | self.ch1_poly_5 >> 1;
-                    }
-                    samples.push(if self.ch1_poly_5 & 0x1 == 0 {0} else {5} );
+                    sample = if self.ch1_poly_5 & 0x1 == 0 {0} else {volume};
                 }
                 0x8 => {
-                    if  trigger_change {
-                        self.ch1_poly_9 = ((self.ch1_poly_9 >> 4 & 0x1) ^ (self.ch1_poly_9 & 0x1)) << 8 | self.ch1_poly_9 >> 1;
-                    }
-                    samples.push(if self.ch1_poly_9 & 0x1 == 0 {0} else {5} );
+                    sample = if self.ch1_poly_9 & 0x1 == 0 {0} else {volume};
                 }
                 0xC | 0xD => {
-                    incr = (frequency / 6.0) / sample_rate as f64;
-                    if  trigger_change { self.ch1_square ^= 0x1; }
-                    samples.push(if self.ch1_square & 0x1 == 0 {0} else {5} );
+                    incr = (frequency / 3.0) / sample_rate as f64;
+                    sample = if self.ch1_square & 0x1 == 0 {0} else {volume};
                 }
                 0xE => {
-                    incr = (frequency / 93.0) / sample_rate as f64;
-                    if  trigger_change { self.ch1_square ^= 0x1; }
-                    samples.push(if self.ch1_square & 0x1 == 0 {0} else {5} );
+                    incr = (frequency / 46.5) / sample_rate as f64;
+                    sample = if self.ch1_square & 0x1 == 0 {0} else {volume};
                 }
                 0xF => {
-                    incr = (frequency / 6.0) / sample_rate as f64;
-                    if  trigger_change {
-                        self.ch1_poly_5 = ((self.ch1_poly_5 >> 2 & 0x1) ^ (self.ch1_poly_5 & 0x1)) << 4 | self.ch1_poly_5 >> 1;
-                    }
-                    samples.push(if self.ch1_poly_5 & 0x1 == 0 {0} else {5} );
+                    incr = (frequency / 3.0) / sample_rate as f64;
+                    sample = if self.ch1_poly_5 & 0x1 == 0 {0} else {volume};
                 }
                 _ => {}
             }
+            samples.push(sample);
             self.prev_ch1_index = self.ch1_index;
             self.ch1_index += incr;
             if self.ch1_index > 1.0 { self.ch1_index -= 1.0 };

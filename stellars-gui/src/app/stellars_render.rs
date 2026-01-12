@@ -80,7 +80,7 @@ impl StellarsRender {
     }
 
     pub fn run(&mut self) {
-        self.libstellars.read().unwrap().load_rom(PathBuf::from("./stellars-gui/resources/F8/frogpond.a26"));
+        self.libstellars.read().unwrap().load_rom(PathBuf::from("./stellars-gui/resources/Tennis - Le Tennis (1981) (Activision, Alan Miller).bin"));
 
         let stellars = self.libstellars.clone();
         let picture_buffer = self.picture_buffer.clone();
@@ -203,11 +203,7 @@ fn audio_callback<T>(data: &mut [T], sample_rate: SampleRate, stellars: Arc<RwLo
 
     for (sample_index, frame) in data.chunks_mut(1).enumerate() {
         for sample in frame.iter_mut() {
-            if samples.is_empty() {
-                *sample = Sample::EQUILIBRIUM;
-            } else {
-                *sample = T::from_sample(samples[sample_index]);
-            }
+            *sample = T::from_sample((samples[sample_index] as f64 * 0.25) as u8);
         }
     }
 }
