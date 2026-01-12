@@ -234,7 +234,7 @@ impl Tia {
         for _ in 0..number {
             let frequency: f64 = NTSC_TIA_AUDIO_CLOCK as f64 / ((self.get_wo_reg(WORegs::Audf0).value & 0x1F) + 1) as f64;
             let mut incr: f64 = frequency / sample_rate as f64;
-            let volume: u8 = self.get_wo_reg(WORegs::Audv0).value * 2;
+            let volume: u8 = self.get_wo_reg(WORegs::Audv0).value;
             let trigger_change = self.prev_ch1_index < 0.5 && self.ch1_index >= 0.5;
             let mut sample = 0;
 
@@ -283,7 +283,7 @@ impl Tia {
                     incr = (frequency / 3.0) / sample_rate as f64;
                     sample = if self.ch1_poly_5 & 0x1 == 0 {0} else {volume};
                 }
-                _ => {}
+                _ => {println!("B")}
             }
             samples.push(sample);
             self.prev_ch1_index = self.ch1_index;
