@@ -9,6 +9,7 @@ use crate::tia::Tia;
 
 #[cfg(feature = "test-utils")]
 use serde_json::{Map, Value};
+use crate::cartridge::Cartridge;
 use crate::debug::StellarDebugInfo;
 use crate::pia::Pia;
 
@@ -19,6 +20,7 @@ mod tia;
 pub mod controller;
 mod pia;
 mod debug;
+mod cartridge;
 
 pub const SCREEN_WIDTH: u32 = 160;
 pub const SCREEN_HEIGHT: u32 = 262;
@@ -36,6 +38,7 @@ pub struct Stellar {
     cpu: Arc<RwLock<Cpu>>,
     controller: Arc<RwLock<Controller>>,
     pia: Arc<RwLock<Pia>>,
+    cartridge: Arc<RwLock<Cartridge>>,
     
     frame_ready: AtomicBool,
 }
@@ -48,12 +51,14 @@ impl Stellar {
             cpu: Arc::new(RwLock::new(Cpu::new())),
             controller: Arc::new(RwLock::new(Controller::new())),
             pia: Arc::new(RwLock::new(Pia::new())),
+            cartridge: Arc::new(RwLock::new(Cartridge::new())),
             
             frame_ready: AtomicBool::new(false),
         }));
 
         bus.read().unwrap().tia.write().unwrap().bus = Some(Arc::downgrade(&bus));
         bus.read().unwrap().cpu.write().unwrap().bus = Some(Arc::downgrade(&bus));
+        bus.read().unwrap().cartridge.write().unwrap().bus = Some(Arc::downgrade(&bus));
 
         bus
     }
@@ -83,22 +88,7 @@ impl Stellar {
 
     #[cfg(not(feature = "test-utils"))]
     pub fn load_rom(&self, path: PathBuf) {
-        match fs::read(path.clone()) {
-            Ok(mut data) => {
-                let size = data.len();
-                if size == 4096 {
-                    self.memory.write().unwrap().game_rom = data;
-                } else if size == 2048 {
-                    data.reserve(2048);
-                    data.extend_from_within(0..2048);
-                    self.memory.write().unwrap().game_rom = data;
-                } else {
-                    panic!("Unknown rom size");
-                }
-                self.cpu.write().unwrap().init_pc(self.read_byte(0xFFFC) as u16 | ((self.read_byte(0xFFFD) as u16) << 8));
-            }
-            Err(err) => {eprintln!("Cannot open ROM {}: {err}", path.display())}
-        }
+        self.cartridge.write().unwrap().load_rom(path);
     }
 
     pub fn update_inputs(&self, input: Input, pressed: bool) {
