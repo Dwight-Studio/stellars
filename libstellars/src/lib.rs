@@ -107,7 +107,9 @@ impl Stellar {
     }
 
     #[cfg(not(feature = "test-utils"))]
-    pub(crate) fn read_byte(&self, address: u16) -> u8 {
+    pub(crate) fn read_byte(&self, mut address: u16) -> u8 {
+        address &= 0x1FFF;
+
         self.memory.write().unwrap().check_bank_switching(address);
 
         let data: u8;
@@ -123,8 +125,8 @@ impl Stellar {
             data = self.controller.read().unwrap().read_inputs(address);
         } else if (0x0284..=0x0285).contains(&address) || (0x0294..=0x0297).contains(&address) {
             data = self.pia.write().unwrap().read(address);
-        } else if address >= 0xF000 {
-            data = self.memory.read().unwrap().read_game_rom((address - 0xF000) as usize);
+        } else if address >= 0x1000 {
+            data = self.memory.read().unwrap().read_game_rom((address - 0x1000) as usize);
         } else {
             data = 0xFF;
             // TODO: Reading at unknown address
@@ -134,7 +136,9 @@ impl Stellar {
     }
 
     #[cfg(not(feature = "test-utils"))]
-    pub(crate) fn write_byte(&self, address: u16, value: u8) {
+    pub(crate) fn write_byte(&self, mut address: u16, value: u8) {
+        address &= 0x1FFF;
+
         self.memory.write().unwrap().check_bank_switching(address);
 
         if address <= 0x2C {
