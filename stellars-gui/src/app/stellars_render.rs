@@ -20,7 +20,8 @@ pub struct StellarsRender {
     scale_factor: (u32, u32),
     target_framerate: f64,
 
-    audio_stream: Option<Stream>,
+    ch1_stream: Option<Stream>,
+    ch2_stream: Option<Stream>,
 
     libstellars: Arc<RwLock<Stellar>>,
 }
@@ -45,23 +46,35 @@ impl StellarsRender {
         // Strange fix for blank window on Windows
         pixels.enable_vsync(false);
 
-        let mut audio_stream: Option<Stream> = None;
+        let mut ch1_stream: Option<Stream> = None;
+        let mut ch2_stream: Option<Stream> = None;
         if  let Some(device) = cpal::default_host().default_output_device() &&
             let Ok(mut configs) = device.supported_output_configs() &&
             let Some(config) = configs.next()
         {
             let sample_rate = config.with_max_sample_rate().sample_rate();
             let stellars = libstellars.clone();
-            let stream = device.build_output_stream(
+            let ch1 = device.build_output_stream(
                 &config.with_max_sample_rate().config(),
                 move |data: &mut [u8], _: &cpal::OutputCallbackInfo| {
-                    audio_callback(data, sample_rate, stellars.clone());
+                    ch1_audio_callback(data, sample_rate, stellars.clone());
                 },
                 audio_error,
                 None).expect("Output stream cannot be created.");
-            stream.play().unwrap();
+            ch1.play().unwrap();
 
-            audio_stream = Some(stream);
+            let stellars = libstellars.clone();
+            let ch2 = device.build_output_stream(
+                &config.with_max_sample_rate().config(),
+                move |data: &mut [u8], _: &cpal::OutputCallbackInfo| {
+                    ch2_audio_callback(data, sample_rate, stellars.clone());
+                },
+                audio_error,
+                None).expect("Output stream cannot be created.");
+            ch1.play().unwrap();
+
+            ch1_stream = Some(ch1);
+            ch2_stream = Some(ch2);
         } else {
             println!("No audio output device available.");
         }
@@ -73,7 +86,8 @@ impl StellarsRender {
             scale_factor,
             target_framerate: 60.0,
 
-            audio_stream,
+            ch1_stream,
+            ch2_stream,
 
             libstellars
         }
@@ -196,10 +210,22 @@ impl StellarsRender {
     }
 }
 
-fn audio_callback<T>(data: &mut [T], sample_rate: SampleRate, stellars: Arc<RwLock<Stellar>>)
+fn ch1_audio_callback<T>(data: &mut [T], sample_rate: SampleRate, stellars: Arc<RwLock<Stellar>>)
     where T: Sample + FromSample<u8>
 {
     let samples = stellars.read().unwrap().get_channel_1_samples(sample_rate as u64, data.len());
+
+    for (sample_index, frame) in data.chunks_mut(1).enumerate() {
+        for sample in frame.iter_mut() {
+            *sample = T::from_sample((samples[sample_index] as f64 * 0.5) as u8);
+        }
+    }
+}
+
+fn ch2_audio_callback<T>(data: &mut [T], sample_rate: SampleRate, stellars: Arc<RwLock<Stellar>>)
+where T: Sample + FromSample<u8>
+{
+    let samples = stellars.read().unwrap().get_channel_2_samples(sample_rate as u64, data.len());
 
     for (sample_index, frame) in data.chunks_mut(1).enumerate() {
         for sample in frame.iter_mut() {

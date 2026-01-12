@@ -88,6 +88,13 @@ pub struct Tia {
     ch1_poly_5: u8,
     ch1_poly_9: u16,
     ch1_square: u8,
+
+    ch2_index: f64,
+    prev_ch2_index: f64,
+    ch2_poly_4: u8,
+    ch2_poly_5: u8,
+    ch2_poly_9: u16,
+    ch2_square: u8,
 }
 
 impl Tia {
@@ -121,7 +128,14 @@ impl Tia {
             ch1_square: 0,
             ch1_poly_4: 0xF,
             ch1_poly_5: 0x1F,
-            ch1_poly_9: 0x1FF
+            ch1_poly_9: 0x1FF,
+
+            ch2_index: 0.0,
+            prev_ch2_index: 0.0,
+            ch2_square: 0,
+            ch2_poly_4: 0xF,
+            ch2_poly_5: 0x1F,
+            ch2_poly_9: 0x1FF
         }
     }
 
@@ -289,6 +303,72 @@ impl Tia {
             self.prev_ch1_index = self.ch1_index;
             self.ch1_index += incr;
             if self.ch1_index > 1.0 { self.ch1_index -= 1.0 };
+        }
+
+        samples
+    }
+
+    pub fn get_channel_2_samples(&mut self, sample_rate: u64, number: usize) -> Vec<u8> {
+        let mut samples: Vec<u8> = Vec::new();
+
+        for _ in 0..number {
+            let frequency: f64 = NTSC_TIA_AUDIO_CLOCK as f64 / ((self.get_wo_reg(WORegs::Audf1).value & 0x1F) + 1) as f64;
+            let mut incr: f64 = frequency / sample_rate as f64;
+            let volume: u8 = self.get_wo_reg(WORegs::Audv1).value;
+            let trigger_change = self.prev_ch2_index < 0.5 && self.ch2_index >= 0.5;
+            let mut sample = 0;
+
+            if trigger_change {
+                self.ch2_square ^= 0x1;
+                self.ch2_poly_4 = ((self.ch2_poly_4 >> 1 & 0x1) ^ (self.ch2_poly_4 & 0x1)) << 3 | self.ch2_poly_4 >> 1;
+                self.ch2_poly_5 = ((self.ch2_poly_5 >> 2 & 0x1) ^ (self.ch2_poly_5 & 0x1)) << 4 | self.ch2_poly_5 >> 1;
+                self.ch2_poly_9 = ((self.ch2_poly_9 >> 4 & 0x1) ^ (self.ch2_poly_9 & 0x1)) << 8 | self.ch2_poly_9 >> 1;
+            }
+
+            match self.get_wo_reg(WORegs::Audc1).value {
+                0x0 | 0xB => {
+                    sample = volume;
+                }
+                0x1 => {
+                    sample = if self.ch2_poly_4 & 0x1 == 0 {0} else {volume};
+                }
+                0x2 => {
+                    incr = (frequency / 15.0) / sample_rate as f64;
+                    sample = if self.ch2_poly_4 & 0x1 == 0 {0} else {volume};
+                }
+                // TODO: Add 0x3
+                0x4 | 0x5 => {
+                    incr = (frequency / 1.0) / sample_rate as f64;
+                    sample = if self.ch2_square & 0x1 == 0 {0} else {volume};
+                }
+                0x6 | 0xA => {
+                    incr = (frequency / 15.5) / sample_rate as f64;
+                    sample = if self.ch2_square & 0x1 == 0 {0} else {volume};
+                }
+                0x7 | 0x9 => {
+                    sample = if self.ch2_poly_5 & 0x1 == 0 {0} else {volume};
+                }
+                0x8 => {
+                    sample = if self.ch2_poly_9 & 0x1 == 0 {0} else {volume};
+                }
+                0xC | 0xD => {
+                    incr = (frequency / 3.0) / sample_rate as f64;
+                    sample = if self.ch2_square & 0x1 == 0 {0} else {volume};
+                }
+                0xE => {
+                    incr = (frequency / 46.5) / sample_rate as f64;
+                    sample = if self.ch2_square & 0x1 == 0 {0} else {volume};
+                }
+                0xF => {
+                    incr = (frequency / 3.0) / sample_rate as f64;
+                    sample = if self.ch2_poly_5 & 0x1 == 0 {0} else {volume};
+                }
+                _ => {}
+            }
+            samples.push(sample);
+            self.prev_ch2_index = self.ch2_index;
+            self.ch2_index += incr;
+            if self.ch2_index > 1.0 { self.ch2_index -= 1.0 };
         }
 
         samples
