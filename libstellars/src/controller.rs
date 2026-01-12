@@ -149,7 +149,11 @@ impl Controller {
         }
     }
 
-    pub fn read_inputs(&self, address: u16) -> u8 {
+    pub fn read_inputs(&self, mut address: u16) -> u8 {
+        if !(0x0280..=0x0283).contains(&address) {
+            address &= 0x000F;
+        }
+
         if address == Functions::Inpt0 as u16 {
             return self.inpt0;
         } else if address == Functions::Inpt1 as u16 {
