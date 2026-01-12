@@ -135,6 +135,8 @@ impl Stellar {
 
     #[cfg(not(feature = "test-utils"))]
     pub(crate) fn write_byte(&self, address: u16, value: u8) {
+        self.memory.write().unwrap().check_bank_switching(address);
+
         if address <= 0x2C {
             self.tia.write().unwrap().set_wo_reg(address as u8, value);
         } else if (0x0080..=0x00FF).contains(&address) {

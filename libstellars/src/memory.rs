@@ -92,9 +92,9 @@ impl Memory {
 
     pub fn check_bank_switching(&mut self, address: u16) {
         if self.bank_switching == F8 {
-            if address == 0xFFF8 {
+            if address == 0x1FF8 {
                 self.selected_bank = 0;
-            } else if address == 0xFFF9 {
+            } else if address == 0x1FF9 {
                 self.selected_bank = 1;
             }
         }
