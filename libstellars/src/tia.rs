@@ -53,6 +53,9 @@ pub enum WORegs {
     Hmm0    = 0x22,
     Hmm1    = 0x23,
     Hmbl    = 0x24,
+    Vdelp0  = 0x25,
+    Vdelp1  = 0x26,
+    Vdelbl  = 0x27,
     Hmove   = 0x2A,
     Hmclr   = 0x2B,
 
@@ -97,6 +100,9 @@ impl From<u8> for WORegs {
             0x22 => WORegs::Hmm0,
             0x23 => WORegs::Hmm1,
             0x24 => WORegs::Hmbl,
+            0x25 => WORegs::Vdelp0,
+            0x26 => WORegs::Vdelp1,
+            0x27 => WORegs::Vdelbl,
             0x2A => WORegs::Hmove,
             0x2B => WORegs::Hmclr,
             _ => WORegs::Unknown, // Default fallback for unrecognized values

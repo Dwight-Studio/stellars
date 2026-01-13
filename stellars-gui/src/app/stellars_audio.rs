@@ -1,5 +1,5 @@
 use std::sync::{Arc, RwLock};
-use cpal::{FromSample, Sample, Stream, StreamError};
+use cpal::{FromSample, Sample, SampleFormat, Stream, StreamError};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use libstellars::Stellar;
 
@@ -12,21 +12,31 @@ impl StellarsAudio {
         let mut audio_stream: Option<Stream> = None;
 
         if  let Some(device) = cpal::default_host().default_output_device() &&
-            let Ok(mut configs) = device.supported_output_configs() &&
-            let Some(config) = configs.next()
+            let Ok(mut configs) = device.supported_output_configs()
         {
-            libstellars.read().unwrap().use_audio(config.with_max_sample_rate().sample_rate() as usize);
-            let stellars = libstellars.clone();
-            let stream = device.build_output_stream(
-                &config.with_max_sample_rate().config(),
-                move |data: &mut [u8], _: &cpal::OutputCallbackInfo| {
-                    audio_callback(data, stellars.clone());
-                },
-                audio_error,
-                None).expect("Output stream cannot be created.");
-            stream.play().unwrap();
+            let supported_config = configs.find(|c| c.sample_format() == SampleFormat::U8 && c.channels() == 2);
 
-            audio_stream = Some(stream);
+            if let Some(supported_config) = supported_config {
+                let config = supported_config.with_max_sample_rate();
+                let sample_rate = config.sample_rate();
+
+                println!("Configured audio device with sample rate: {}", sample_rate);
+
+                libstellars.read().unwrap().use_audio(sample_rate as usize);
+                let stellars = libstellars.clone();
+                let stream = device.build_output_stream(
+                    &config.config(),
+                    move |data: &mut [u8], _: &cpal::OutputCallbackInfo| {
+                        audio_callback(data, stellars.clone());
+                    },
+                    audio_error,
+                    None).expect("Output stream cannot be created.");
+                stream.play().unwrap();
+
+                audio_stream = Some(stream);
+            } else {
+                println!("No supported output audio device found.");
+            }
         } else {
             println!("No audio output device available.");
         }
@@ -38,9 +48,8 @@ impl StellarsAudio {
 
     pub fn stop(&mut self) {
         if let Some(stream) = self.stream.take() {
-            stream.pause().unwrap();
+            drop(stream);
         }
-        self.stream = None;
     }
 }
 

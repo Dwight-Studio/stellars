@@ -8,7 +8,6 @@ pub struct AudioChannel {
 
     index: f64,
     prev_index: f64,
-    prev_sample: u8,
     square: u8,
     poly_4: u8,
     poly_4_3: u8,
@@ -27,7 +26,6 @@ impl AudioChannel {
 
             index: 0.0,
             prev_index: 0.0,
-            prev_sample: 0,
             square: 0,
             poly_4: 0xF,
             poly_4_3: 0xF,
@@ -51,62 +49,62 @@ impl AudioChannel {
 
     pub fn next_sample(&mut self) -> u8 {
         let frequency: f64 = NTSC_TIA_AUDIO_CLOCK as f64 / ((self.audf & 0x1F) + 1) as f64;
+        let volume = self.audv + 0x80;
         let mut incr: f64 = 0.0;
-        let mut sample = 0;
+        let mut sample = 0x80;
 
         self.update();
 
-        match self.audc {
+        match self.audc & 0xF {
             0x0 | 0xB => {
                 incr = frequency / self.sample_rate as f64;
-                sample = self.audv;
+                sample = 0x80;
             }
             0x1 => {
                 incr = frequency / self.sample_rate as f64;
-                sample = if self.poly_4 & 0x1 == 0 {0} else {self.audv};
+                sample = if self.poly_4 & 0x1 == 0 {0x80} else {volume};
             }
             0x2 => {
-                incr = (frequency / 15.0) / self.sample_rate as f64;
-                sample = if self.poly_4 & 0x1 == 0 {0} else {self.audv};
+                incr = (frequency / 30.0) / self.sample_rate as f64;
+                sample = if self.poly_4 & 0x1 == 0 {0x80} else {volume};
             }
             0x3 => {
                 incr = frequency / self.sample_rate as f64;
-                sample = if self.poly_4_3 & 0x1 == 0 {0} else {self.audv};
+                sample = if self.poly_4_3 & 0x1 == 0 {0x80} else {volume};
             }
             0x4 | 0x5 => {
-                incr = (frequency / 1.0) / self.sample_rate as f64;
-                sample = if self.square & 0x1 == 0 {0} else {self.audv};
+                incr = (frequency / 2.0) / self.sample_rate as f64;
+                sample = if self.square & 0x1 == 0 {0x80} else {volume};
             }
             0x6 | 0xA => {
-                incr = (frequency / 15.5) / self.sample_rate as f64;
-                sample = if self.square & 0x1 == 0 {0} else {self.audv};
+                incr = (frequency / 31.0) / self.sample_rate as f64;
+                sample = if self.square & 0x1 == 0 {0x80} else {volume};
             }
             0x7 | 0x9 => {
                 incr = frequency / self.sample_rate as f64;
-                sample = if self.poly_5 & 0x1 == 0 {0} else {self.audv};
+                sample = if self.poly_5 & 0x1 == 0 {0x80} else {volume};
             }
             0x8 => {
                 incr = frequency / self.sample_rate as f64;
-                sample = if self.poly_9 & 0x1 == 0 {0} else {self.audv};
+                sample = if self.poly_9 & 0x1 == 0 {0x80} else {volume};
             }
             0xC | 0xD => {
-                incr = (frequency / 3.0) / self.sample_rate as f64;
-                sample = if self.square & 0x1 == 0 {0} else {self.audv};
+                incr = (frequency / 6.0) / self.sample_rate as f64;
+                sample = if self.square & 0x1 == 0 {0x80} else {volume};
             }
             0xE => {
-                incr = (frequency / 46.5) / self.sample_rate as f64;
-                sample = if self.square & 0x1 == 0 {0} else {self.audv};
+                incr = (frequency / 93.0) / self.sample_rate as f64;
+                sample = if self.square & 0x1 == 0 {0x80} else {volume};
             }
             0xF => {
-                incr = (frequency / 3.0) / self.sample_rate as f64;
-                sample = if self.poly_5 & 0x1 == 0 {0} else {self.audv};
+                incr = (frequency / 6.0) / self.sample_rate as f64;
+                sample = if self.poly_5 & 0x1 == 0 {0x80} else {volume};
             }
-            _ => {println!("Value: {:X}", self.audc)}
+            _ => {}
         }
         self.prev_index = self.index;
         self.index += incr;
         if self.index > 1.0 { self.index -= 1.0 };
-        self.prev_sample = sample;
 
         sample
     }
