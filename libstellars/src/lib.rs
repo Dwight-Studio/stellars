@@ -128,10 +128,15 @@ impl Stellar {
             data = self.controller.read().unwrap().read_inputs(address);
         } else if (address & 0b1_0000_0000_0000) == 0 && (address & 0b10_0000_0000) == 0 && (address & 0b1000_0000) != 0 { // PIA RAM Mirrors
             data = self.memory.read().unwrap().ram[(address & 0x7F) as usize];
-        } else if (0x0280..=0x0283).contains(&address) {
-            data = self.controller.read().unwrap().read_inputs(address);
-        } else if (0x0284..=0x0287).contains(&address) || (0x0294..=0x0297).contains(&address) {
-            data = self.pia.write().unwrap().read(address);
+        } else if (address & 0b1_0000_0000_0000) == 0 && (address & 0b10_0000_0000) != 0 && (address & 0b1000_0000) != 0 { // PIA I/O Mirrors
+            address &= 0x17;
+            if address <= 0x03 {
+                data = self.controller.read().unwrap().read_inputs(address);
+            } else if address & 0x10 == 0 {
+                data = self.pia.write().unwrap().read(address & 0x01);
+            } else {
+                data = self.pia.write().unwrap().read(address);
+            }
         } else if address >= 0x1000 {
             data = self.memory.read().unwrap().read_game_rom((address - 0x1000) as usize);
         } else {
@@ -156,8 +161,11 @@ impl Stellar {
             }
         } else if (address & 0b1_0000_0000_0000) == 0 && (address & 0b10_0000_0000) == 0 && (address & 0b1000_0000) != 0 { // PIA RAM Mirrors
             self.memory.write().unwrap().ram[(address & 0x7F) as usize] = value;
-        } else if (0x0294..=0x0297).contains(&address) {
-            self.pia.write().unwrap().write(address, value);
+        } else if (address & 0b1_0000_0000_0000) == 0 && (address & 0b10_0000_0000) != 0 && (address & 0b1000_0000) != 0 { // PIA I/O Mirrors
+            address &= 0x17;
+            if address >= 0x14 {
+                self.pia.write().unwrap().write(address, value);
+            }
         }
     }
 

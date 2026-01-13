@@ -7,10 +7,10 @@ enum Functions {
     Inpt3 = 0x000B,
     Inpt4 = 0x000C,
     Inpt5 = 0x000D,
-    Swcha = 0x0280,
-    Swacnt = 0x0281,
-    Swchb = 0x0282,
-    Swbcnt = 0x0283
+    Swcha = 0x0000,
+    Swacnt = 0x0001,
+    Swchb = 0x0002,
+    Swbcnt = 0x0003
 }
 
 #[derive(Copy, Clone)]

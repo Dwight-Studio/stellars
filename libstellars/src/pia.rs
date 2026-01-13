@@ -1,11 +1,11 @@
 #[repr(u16)]
 enum Functions {
-    Intim = 0x0284,
-    Instat = 0x0285,
-    Tim1t = 0x0294,
-    Tim8t = 0x0295,
-    Tim64t = 0x0296,
-    T1024t = 0x0297
+    Intim = 0x00,
+    Instat = 0x01,
+    Tim1t = 0x14,
+    Tim8t = 0x15,
+    Tim64t = 0x16,
+    T1024t = 0x17
 }
 
 #[derive(Copy, Clone)]
