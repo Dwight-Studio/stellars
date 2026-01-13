@@ -1,19 +1,19 @@
 mod colors;
 mod register;
 mod object;
+mod audio_channel;
 
 use crate::tia::colors::NTSC_COLORS;
 use crate::{Color, Stellar, SCREEN_HEIGHT, SCREEN_WIDTH};
 use std::sync::{RwLock, Weak};
 use std::sync::atomic::Ordering;
 use crate::debug::{TiaDebug};
+use crate::tia::audio_channel::AudioChannel;
 use crate::tia::object::Object;
 use crate::tia::register::Register;
 
 static PMB_SIZE: [u8; 4] = [1, 2, 4, 8];
 static PM_NUMBER: [&[u8]; 8] = [&[0], &[0, 16], &[0, 32], &[0, 16, 32], &[0, 64], &[0, 8], &[0, 32, 64], &[0, 8, 16, 32]];
-
-static NTSC_TIA_AUDIO_CLOCK: u16 = 31399;
 
 #[derive(Copy, Clone)]
 #[repr(u8)]
@@ -55,6 +55,53 @@ pub enum WORegs {
     Hmbl    = 0x24,
     Hmove   = 0x2A,
     Hmclr   = 0x2B,
+
+    Unknown = 0xFF,
+}
+
+impl From<u8> for WORegs {
+    fn from(value: u8) -> Self {
+        match value {
+            0x00 => WORegs::Vsync,
+            0x02 => WORegs::Wsync,
+            0x04 => WORegs::Nusiz0,
+            0x05 => WORegs::Nusiz1,
+            0x06 => WORegs::Colup0,
+            0x07 => WORegs::Colup1,
+            0x08 => WORegs::Colupf,
+            0x09 => WORegs::Colubk,
+            0x0A => WORegs::Ctrlpf,
+            0x0B => WORegs::Refp0,
+            0x0C => WORegs::Refp1,
+            0x0D => WORegs::Pf0,
+            0x0E => WORegs::Pf1,
+            0x0F => WORegs::Pf2,
+            0x10 => WORegs::Resp0,
+            0x11 => WORegs::Resp1,
+            0x12 => WORegs::Resm0,
+            0x13 => WORegs::Resm1,
+            0x14 => WORegs::Resbl,
+            0x15 => WORegs::Audc0,
+            0x16 => WORegs::Audc1,
+            0x17 => WORegs::Audf0,
+            0x18 => WORegs::Audf1,
+            0x19 => WORegs::Audv0,
+            0x1A => WORegs::Audv1,
+            0x1B => WORegs::Grp0,
+            0x1C => WORegs::Grp1,
+            0x1D => WORegs::Enam0,
+            0x1E => WORegs::Enam1,
+            0x1F => WORegs::Enabl,
+            0x20 => WORegs::Hmp0,
+            0x21 => WORegs::Hmp1,
+            0x22 => WORegs::Hmm0,
+            0x23 => WORegs::Hmm1,
+            0x24 => WORegs::Hmbl,
+            0x2A => WORegs::Hmove,
+            0x2B => WORegs::Hmclr,
+            _ => WORegs::Unknown, // Default fallback for unrecognized values
+        }
+    }
 }
 /*#[repr(u8)]
 pub enum RORegs {
@@ -82,19 +129,8 @@ pub struct Tia {
     player0: Object,
     player1: Object,
 
-    ch1_index: f64,
-    prev_ch1_index: f64,
-    ch1_poly_4: u8,
-    ch1_poly_5: u8,
-    ch1_poly_9: u16,
-    ch1_square: u8,
-
-    ch2_index: f64,
-    prev_ch2_index: f64,
-    ch2_poly_4: u8,
-    ch2_poly_5: u8,
-    ch2_poly_9: u16,
-    ch2_square: u8,
+    channel_0: Option<AudioChannel>,
+    channel_1: Option<AudioChannel>,
 }
 
 impl Tia {
@@ -123,69 +159,61 @@ impl Tia {
             player0:  Object::new(),
             player1:  Object::new(),
 
-            ch1_index: 0.0,
-            prev_ch1_index: 0.0,
-            ch1_square: 0,
-            ch1_poly_4: 0xF,
-            ch1_poly_5: 0x1F,
-            ch1_poly_9: 0x1FF,
-
-            ch2_index: 0.0,
-            prev_ch2_index: 0.0,
-            ch2_square: 0,
-            ch2_poly_4: 0xF,
-            ch2_poly_5: 0x1F,
-            ch2_poly_9: 0x1FF
+            channel_0: None,
+            channel_1: None,
         }
     }
 
     pub fn set_wo_reg(&mut self, address: u8, value: u8) {
-        if address == WORegs::Vsync as u8 {
-            self.wo_regs[address as usize] = value;
-            self.pic_y = 0;
-            self.pic_x = 0;
-            self.tia_debug.picture_scanline = 1;
-            self.tia_debug.horizontal_counter = 1;
-            self.clock_count = 0;
-        } else if  address == WORegs::Wsync as u8 {
-            self.wo_regs[address as usize] = 0x1;
-        } else if address == WORegs::Resm0 as u8 {
-            self.missile0.counter_reset(false);
-        } else if address == WORegs::Resm1 as u8 {
-            self.missile1.counter_reset(false);
-        } else if address == WORegs::Resbl as u8 {
-            self.ball.counter_reset(true);
-        } else if address == WORegs::Resp0 as u8 {
-            self.player0.counter_reset(false);
-        } else if address == WORegs::Resp1 as u8 {
-            self.player1.counter_reset(false);
-        } else if address == WORegs::Hmove as u8 {
-            self.wo_regs[address as usize] = 8;
+        match WORegs::from(address) {
+            WORegs::Vsync => {
+                self.wo_regs[address as usize] = value;
+                self.pic_y = 0;
+                self.pic_x = 0;
+                self.tia_debug.picture_scanline = 1;
+                self.tia_debug.horizontal_counter = 1;
+                self.clock_count = 0;
+            }
+            WORegs::Wsync => { self.wo_regs[address as usize] = 0x1; }
+            WORegs::Resp0 => { self.player0.counter_reset(false); }
+            WORegs::Resp1 => { self.player1.counter_reset(false); }
+            WORegs::Resm0 => { self.missile0.counter_reset(true); }
+            WORegs::Resm1 => { self.missile1.counter_reset(false); }
+            WORegs::Resbl => { self.ball.counter_reset(false); }
+            WORegs::Audc0 => { if let Some(channel) = &mut self.channel_0 { channel.set_audc(value) } }
+            WORegs::Audc1 => { if let Some(channel) = &mut self.channel_1 { channel.set_audc(value) } }
+            WORegs::Audf0 => { if let Some(channel) = &mut self.channel_0 { channel.set_audf(value) } }
+            WORegs::Audf1 => { if let Some(channel) = &mut self.channel_1 { channel.set_audf(value) } }
+            WORegs::Audv0 => { if let Some(channel) = &mut self.channel_0 { channel.set_audv(value) } }
+            WORegs::Audv1 => { if let Some(channel) = &mut self.channel_1 { channel.set_audv(value) } }
+            WORegs::Hmove => {
+                self.wo_regs[address as usize] = 8;
 
-            // TODO: Counter shoudl be incremented based on the clock count instead doing all the
-            //       increments all at once
-            let fbc_val = (self.get_wo_reg(WORegs::Hmm0).value >> 4) ^ 0x8;
-            self.missile0.counter_increment(fbc_val);
+                // TODO: Counter shoudl be incremented based on the clock count instead doing all the
+                //       increments all at once
+                let fbc_val = (self.get_wo_reg(WORegs::Hmm0).value >> 4) ^ 0x8;
+                self.missile0.counter_increment(fbc_val);
 
-            let fbc_val = (self.get_wo_reg(WORegs::Hmm1).value >> 4) ^ 0x8;
-            self.missile1.counter_increment(fbc_val);
+                let fbc_val = (self.get_wo_reg(WORegs::Hmm1).value >> 4) ^ 0x8;
+                self.missile1.counter_increment(fbc_val);
 
-            let fbc_val = (self.get_wo_reg(WORegs::Hmbl).value >> 4) ^ 0x8;
-            self.ball.counter_increment(fbc_val);
+                let fbc_val = (self.get_wo_reg(WORegs::Hmbl).value >> 4) ^ 0x8;
+                self.ball.counter_increment(fbc_val);
 
-            let fbc_val = (self.get_wo_reg(WORegs::Hmp0).value >> 4) ^ 0x8;
-            self.player0.counter_increment(fbc_val);
+                let fbc_val = (self.get_wo_reg(WORegs::Hmp0).value >> 4) ^ 0x8;
+                self.player0.counter_increment(fbc_val);
 
-            let fbc_val = (self.get_wo_reg(WORegs::Hmp1).value >> 4) ^ 0x8;
-            self.player1.counter_increment(fbc_val);
-        } else if address == WORegs::Hmclr as u8 {
-            self.wo_regs[WORegs::Hmm0 as usize] = 0x00;
-            self.wo_regs[WORegs::Hmm1 as usize] = 0x00;
-            self.wo_regs[WORegs::Hmbl as usize] = 0x00;
-            self.wo_regs[WORegs::Hmp0 as usize] = 0x00;
-            self.wo_regs[WORegs::Hmp1 as usize] = 0x00;
-        } else {
-            self.wo_regs[address as usize] = value;
+                let fbc_val = (self.get_wo_reg(WORegs::Hmp1).value >> 4) ^ 0x8;
+                self.player1.counter_increment(fbc_val);
+            }
+            WORegs::Hmclr => {
+                self.wo_regs[WORegs::Hmm0 as usize] = 0x00;
+                self.wo_regs[WORegs::Hmm1 as usize] = 0x00;
+                self.wo_regs[WORegs::Hmbl as usize] = 0x00;
+                self.wo_regs[WORegs::Hmp0 as usize] = 0x00;
+                self.wo_regs[WORegs::Hmp1 as usize] = 0x00;
+            }
+            _ => { self.wo_regs[address as usize] = value; }
         }
     }
 
@@ -242,133 +270,30 @@ impl Tia {
         }
     }
 
-    pub fn get_channel_1_samples(&mut self, sample_rate: u64, number: usize) -> Vec<u8> {
-        let mut samples: Vec<u8> = Vec::new();
+    pub fn use_audio(&mut self, sample_rate: usize) {
+        self.channel_0 = Some(AudioChannel::new(sample_rate));
+        self.channel_1 = Some(AudioChannel::new(sample_rate));
+    }
 
-        for _ in 0..number {
-            let frequency: f64 = NTSC_TIA_AUDIO_CLOCK as f64 / ((self.get_wo_reg(WORegs::Audf0).value & 0x1F) + 1) as f64;
-            let mut incr: f64 = frequency / sample_rate as f64;
-            let volume: u8 = self.get_wo_reg(WORegs::Audv0).value;
-            let trigger_change = self.prev_ch1_index < 0.5 && self.ch1_index >= 0.5;
-            let mut sample = 0;
+    pub fn get_channel_0_samples(&mut self, number: usize) -> Vec<u8> {
+        let mut samples: Vec<u8> = Vec::with_capacity(number);
 
-            if trigger_change {
-                self.ch1_square ^= 0x1;
-                self.ch1_poly_4 = ((self.ch1_poly_4 >> 1 & 0x1) ^ (self.ch1_poly_4 & 0x1)) << 3 | self.ch1_poly_4 >> 1;
-                self.ch1_poly_5 = ((self.ch1_poly_5 >> 2 & 0x1) ^ (self.ch1_poly_5 & 0x1)) << 4 | self.ch1_poly_5 >> 1;
-                self.ch1_poly_9 = ((self.ch1_poly_9 >> 4 & 0x1) ^ (self.ch1_poly_9 & 0x1)) << 8 | self.ch1_poly_9 >> 1;
+        if let Some(channel) = &mut self.channel_0 {
+            for _ in 0..number {
+                samples.push(channel.next_sample());
             }
-
-            match self.get_wo_reg(WORegs::Audc0).value {
-                0x0 | 0xB => {
-                    sample = volume;
-                }
-                0x1 => {
-                    sample = if self.ch1_poly_4 & 0x1 == 0 {0} else {volume};
-                }
-                0x2 => {
-                    incr = (frequency / 15.0) / sample_rate as f64;
-                    sample = if self.ch1_poly_4 & 0x1 == 0 {0} else {volume};
-                }
-                // TODO: Add 0x3
-                0x4 | 0x5 => {
-                    incr = (frequency / 1.0) / sample_rate as f64;
-                    sample = if self.ch1_square & 0x1 == 0 {0} else {volume};
-                }
-                0x6 | 0xA => {
-                    incr = (frequency / 15.5) / sample_rate as f64;
-                    sample = if self.ch1_square & 0x1 == 0 {0} else {volume};
-                }
-                0x7 | 0x9 => {
-                    sample = if self.ch1_poly_5 & 0x1 == 0 {0} else {volume};
-                }
-                0x8 => {
-                    sample = if self.ch1_poly_9 & 0x1 == 0 {0} else {volume};
-                }
-                0xC | 0xD => {
-                    incr = (frequency / 3.0) / sample_rate as f64;
-                    sample = if self.ch1_square & 0x1 == 0 {0} else {volume};
-                }
-                0xE => {
-                    incr = (frequency / 46.5) / sample_rate as f64;
-                    sample = if self.ch1_square & 0x1 == 0 {0} else {volume};
-                }
-                0xF => {
-                    incr = (frequency / 3.0) / sample_rate as f64;
-                    sample = if self.ch1_poly_5 & 0x1 == 0 {0} else {volume};
-                }
-                _ => {}
-            }
-            samples.push(sample);
-            self.prev_ch1_index = self.ch1_index;
-            self.ch1_index += incr;
-            if self.ch1_index > 1.0 { self.ch1_index -= 1.0 };
         }
 
         samples
     }
 
-    pub fn get_channel_2_samples(&mut self, sample_rate: u64, number: usize) -> Vec<u8> {
-        let mut samples: Vec<u8> = Vec::new();
+    pub fn get_channel_1_samples(&mut self, number: usize) -> Vec<u8> {
+        let mut samples: Vec<u8> = Vec::with_capacity(number);
 
-        for _ in 0..number {
-            let frequency: f64 = NTSC_TIA_AUDIO_CLOCK as f64 / ((self.get_wo_reg(WORegs::Audf1).value & 0x1F) + 1) as f64;
-            let mut incr: f64 = frequency / sample_rate as f64;
-            let volume: u8 = self.get_wo_reg(WORegs::Audv1).value;
-            let trigger_change = self.prev_ch2_index < 0.5 && self.ch2_index >= 0.5;
-            let mut sample = 0;
-
-            if trigger_change {
-                self.ch2_square ^= 0x1;
-                self.ch2_poly_4 = ((self.ch2_poly_4 >> 1 & 0x1) ^ (self.ch2_poly_4 & 0x1)) << 3 | self.ch2_poly_4 >> 1;
-                self.ch2_poly_5 = ((self.ch2_poly_5 >> 2 & 0x1) ^ (self.ch2_poly_5 & 0x1)) << 4 | self.ch2_poly_5 >> 1;
-                self.ch2_poly_9 = ((self.ch2_poly_9 >> 4 & 0x1) ^ (self.ch2_poly_9 & 0x1)) << 8 | self.ch2_poly_9 >> 1;
+        if let Some(channel) = &mut self.channel_1 {
+            for _ in 0..number {
+                samples.push(channel.next_sample());
             }
-
-            match self.get_wo_reg(WORegs::Audc1).value {
-                0x0 | 0xB => {
-                    sample = volume;
-                }
-                0x1 => {
-                    sample = if self.ch2_poly_4 & 0x1 == 0 {0} else {volume};
-                }
-                0x2 => {
-                    incr = (frequency / 15.0) / sample_rate as f64;
-                    sample = if self.ch2_poly_4 & 0x1 == 0 {0} else {volume};
-                }
-                // TODO: Add 0x3
-                0x4 | 0x5 => {
-                    incr = (frequency / 1.0) / sample_rate as f64;
-                    sample = if self.ch2_square & 0x1 == 0 {0} else {volume};
-                }
-                0x6 | 0xA => {
-                    incr = (frequency / 15.5) / sample_rate as f64;
-                    sample = if self.ch2_square & 0x1 == 0 {0} else {volume};
-                }
-                0x7 | 0x9 => {
-                    sample = if self.ch2_poly_5 & 0x1 == 0 {0} else {volume};
-                }
-                0x8 => {
-                    sample = if self.ch2_poly_9 & 0x1 == 0 {0} else {volume};
-                }
-                0xC | 0xD => {
-                    incr = (frequency / 3.0) / sample_rate as f64;
-                    sample = if self.ch2_square & 0x1 == 0 {0} else {volume};
-                }
-                0xE => {
-                    incr = (frequency / 46.5) / sample_rate as f64;
-                    sample = if self.ch2_square & 0x1 == 0 {0} else {volume};
-                }
-                0xF => {
-                    incr = (frequency / 3.0) / sample_rate as f64;
-                    sample = if self.ch2_poly_5 & 0x1 == 0 {0} else {volume};
-                }
-                _ => {}
-            }
-            samples.push(sample);
-            self.prev_ch2_index = self.ch2_index;
-            self.ch2_index += incr;
-            if self.ch2_index > 1.0 { self.ch2_index -= 1.0 };
         }
 
         samples

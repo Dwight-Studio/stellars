@@ -8,21 +8,26 @@ use winit::dpi::LogicalSize;
 use winit::event::WindowEvent;
 use winit::event_loop::ActiveEventLoop;
 use winit::window::{Window, WindowId};
+use crate::app::stellars_audio::StellarsAudio;
 
 mod stellars_render;
 mod debugger_state;
+mod stellars_audio;
 
 pub struct App {
     libstellars: Arc<RwLock<Stellar>>,
     stellars_render: Option<StellarsRender>,
+    stellars_audio: StellarsAudio,
     input_device: InputDevice
 }
 
 impl App {
     pub fn new() -> Self {
+        let libstellars = Stellar::new();
         Self {
-            libstellars: Stellar::new(),
+            libstellars: libstellars.clone(),
             stellars_render: None,
+            stellars_audio: StellarsAudio::new(libstellars),
             input_device: InputDevice::Joystick
         }
     }
@@ -51,6 +56,7 @@ impl ApplicationHandler for App {
 
         match event {
             WindowEvent::CloseRequested => {
+                self.stellars_audio.stop();
                 self.stellars_render = None;
 
                 event_loop.exit();
