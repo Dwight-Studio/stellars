@@ -112,7 +112,7 @@ impl Stellar {
 
     #[cfg(not(feature = "test-utils"))]
     pub(crate) fn read_byte(&self, mut address: u16) -> u8 {
-        address &= 0x1FFF;
+        address &= 0x1FFF; // CPU 8K Mirror
 
         self.memory.write().unwrap().check_bank_switching(address);
 
@@ -121,10 +121,8 @@ impl Stellar {
         if address <= 0x07 {
             /*todo!("Input and collision latches")*/
             data = 0xFF;
-        } else if (0x0080..=0x00FF).contains(&address) {
-            data = self.memory.read().unwrap().ram[(address - 0x80) as usize]
-        } else if (0x0180..=0x01FF).contains(&address) {
-            data = self.memory.read().unwrap().ram[(address - 0x180) as usize]
+        } else if (address & 0b1_0000_0000_0000) == 0 && (address & 0b10_0000_0000) == 0 && (address & 0b1000_0000) != 0 { // RAM Mirror
+            data = self.memory.read().unwrap().ram[((address & 0xFF) - 0x80) as usize];
         } else if (0x0280..=0x0283).contains(&address) || (0x0008..=0x000D).contains(&address) || (0x0038..=0x003D).contains(&address) {
             data = self.controller.read().unwrap().read_inputs(address);
         } else if (0x0284..=0x0285).contains(&address) || (0x0294..=0x0297).contains(&address) {
