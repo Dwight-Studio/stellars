@@ -77,12 +77,12 @@ impl Stellar {
         self.tia.read().unwrap().pic_buffer
     }
 
-    pub fn get_channel_1_samples(&self, sample_rate: u64, number: usize) -> Vec<u8> {
-        self.tia.write().unwrap().get_channel_1_samples(sample_rate, number)
+    pub fn get_channel_0_samples(&self, number: usize) -> Vec<u8> {
+        self.tia.write().unwrap().get_channel_0_samples(number)
     }
 
-    pub fn get_channel_2_samples(&self, sample_rate: u64, number: usize) -> Vec<u8> {
-        self.tia.write().unwrap().get_channel_2_samples(sample_rate, number)
+    pub fn get_channel_1_samples(&self, number: usize) -> Vec<u8> {
+        self.tia.write().unwrap().get_channel_1_samples(number)
     }
 
     #[cfg(not(feature = "test-utils"))]
@@ -108,6 +108,10 @@ impl Stellar {
         } else {
             self.read_byte(address)
         }
+    }
+
+    pub fn use_audio(&self, sample_rate: usize) {
+        self.tia.write().unwrap().use_audio(sample_rate);
     }
 
     #[cfg(not(feature = "test-utils"))]
