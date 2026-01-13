@@ -116,20 +116,21 @@ impl Stellar {
 
     #[cfg(not(feature = "test-utils"))]
     pub(crate) fn read_byte(&self, mut address: u16) -> u8 {
-        address &= 0x1FFF; // CPU 8K Mirror
+        address &= 0x1FFF; // CPU 8K Mirrors
 
         self.memory.write().unwrap().check_bank_switching(address);
 
         let data: u8;
 
-        if address <= 0x07 {
+        if (address & 0b1_0000_0000_0000) == 0 && (address & 0b1000_0000) == 0 { // TIA Mirrors
             /*todo!("Input and collision latches")*/
-            data = 0xFF;
-        } else if (address & 0b1_0000_0000_0000) == 0 && (address & 0b10_0000_0000) == 0 && (address & 0b1000_0000) != 0 { // RAM Mirror
-            data = self.memory.read().unwrap().ram[(address & 0x7F) as usize];
-        } else if (0x0280..=0x0283).contains(&address) || (0x0008..=0x000D).contains(&address) || (0x0038..=0x003D).contains(&address) {
+            address &= 0x000F;
             data = self.controller.read().unwrap().read_inputs(address);
-        } else if (0x0284..=0x0285).contains(&address) || (0x0294..=0x0297).contains(&address) {
+        } else if (address & 0b1_0000_0000_0000) == 0 && (address & 0b10_0000_0000) == 0 && (address & 0b1000_0000) != 0 { // PIA RAM Mirrors
+            data = self.memory.read().unwrap().ram[(address & 0x7F) as usize];
+        } else if (0x0280..=0x0283).contains(&address) {
+            data = self.controller.read().unwrap().read_inputs(address);
+        } else if (0x0284..=0x0287).contains(&address) || (0x0294..=0x0297).contains(&address) {
             data = self.pia.write().unwrap().read(address);
         } else if address >= 0x1000 {
             data = self.memory.read().unwrap().read_game_rom((address - 0x1000) as usize);
@@ -143,16 +144,18 @@ impl Stellar {
 
     #[cfg(not(feature = "test-utils"))]
     pub(crate) fn write_byte(&self, mut address: u16, value: u8) {
-        address &= 0x1FFF;
+        address &= 0x1FFF; // CPU 8K Mirrors
 
         self.memory.write().unwrap().check_bank_switching(address);
 
-        if address <= 0x2C {
-            self.tia.write().unwrap().set_wo_reg(address as u8, value);
-        } else if (0x0080..=0x00FF).contains(&address) {
-            self.memory.write().unwrap().ram[(address - 0x80) as usize] = value;
-        } else if (0x0180..=0x01FF).contains(&address) {
-            self.memory.write().unwrap().ram[(address - 0x180) as usize] = value;
+        if (address & 0b1_0000_0000_0000) == 0 && (address & 0b1000_0000) == 0 { // TIA Mirrors
+            address &= 0x003F;
+
+            if address <= 0x2C {
+                self.tia.write().unwrap().set_wo_reg(address as u8, value);
+            }
+        } else if (address & 0b1_0000_0000_0000) == 0 && (address & 0b10_0000_0000) == 0 && (address & 0b1000_0000) != 0 { // PIA RAM Mirrors
+            self.memory.write().unwrap().ram[(address & 0x7F) as usize] = value;
         } else if (0x0294..=0x0297).contains(&address) {
             self.pia.write().unwrap().write(address, value);
         }
