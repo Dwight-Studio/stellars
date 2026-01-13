@@ -61,7 +61,7 @@ where T: Sample + FromSample<u8>
 
     for (sample_index, frame) in data.chunks_mut(1).enumerate() {
         for sample in frame.iter_mut() {
-            *sample = T::from_sample(((ch0_samples[sample_index] | ch1_samples[sample_index]) as f64 * 0.5) as u8);
+            *sample = T::from_sample(((ch0_samples[sample_index] | ch1_samples[sample_index]) as f64 * 0.1) as u8);
         }
     }
 }

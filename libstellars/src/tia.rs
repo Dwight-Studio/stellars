@@ -13,7 +13,7 @@ use crate::tia::object::Object;
 use crate::tia::register::Register;
 
 static PMB_SIZE: [u8; 4] = [1, 2, 4, 8];
-static PM_NUMBER: [&[u8]; 8] = [&[0], &[0, 16], &[0, 32], &[0, 16, 32], &[0, 64], &[0, 8], &[0, 32, 64], &[0, 8, 16, 32]];
+static PM_NUMBER: [&[u8]; 8] = [&[0], &[0, 15], &[0, 31], &[0, 15, 31], &[0, 63], &[0, 7], &[0, 31, 63], &[0, 7, 15, 23]];
 
 #[derive(Copy, Clone)]
 #[repr(u8)]
@@ -337,7 +337,6 @@ impl Tia {
         let missile_count               = if missile == 0 { self.missile0.count() } else { self.missile1.count() };
         let mut triggered               = false;
 
-
         for trigger in PM_NUMBER[missile_nb as usize] {
             let trigg = trigger + 4;
             if  missile_count >= trigg && missile_count - trigg < PMB_SIZE[missile_size as usize] {
@@ -364,19 +363,25 @@ impl Tia {
         let player_count    = if player == 0 { self.player0.count() } else { self.player1.count() };
         let mut player_graphic = if player == 0 { self.get_wo_reg(WORegs::Grp0) } else { self.get_wo_reg(WORegs::Grp1) };
         let player_refl     = if player == 0 { self.get_wo_reg(WORegs::Refp0) } else { self.get_wo_reg(WORegs::Refp1) };
-        let mut triggered   = (false, false);
+        let mut triggered   = false;
 
         if player_refl.bit(3) { player_graphic = player_graphic.reverse_bits(); }
 
         for trigger in PM_NUMBER[player_nb as usize] {
             let trigg = trigger + 5;
-            if  player_count >= trigg && player_count - trigg < 8 {
-                triggered = (true, player_graphic.bit(7 - (player_count - trigg)));
+            if player_nb == 0b101 && player_count >= 5 && player_count - 5 < 8 * 2 {
+                triggered = player_graphic.bit((15 - (player_count - 5)) / 2);
+                break;
+            } else if player_nb == 0b111 && player_count >= 5 && player_count - 5 < 8 * 4 {
+                triggered = player_graphic.bit((31 - (player_count - 5)) / 4);
+                break;
+            } else if player_count >= trigg && player_count - trigg < 8 {
+                triggered = player_graphic.bit(7 - (player_count - trigg));
                 break;
             }
         }
 
-        if player_can_draw && player_graphic.value != 0x00 && triggered.0 && triggered.1 {
+        if player_can_draw && player_graphic.value != 0x00 && triggered {
             self.pic_buffer[self.pic_y as usize * SCREEN_WIDTH as usize + (self.pic_x as usize - 68)] = NTSC_COLORS[player_color.value as usize];
         } else {
             self.draw_missile(player);

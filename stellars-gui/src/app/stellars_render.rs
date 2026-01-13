@@ -53,7 +53,7 @@ impl StellarsRender {
     }
 
     pub fn run(&mut self) {
-        self.libstellars.read().unwrap().load_rom(PathBuf::from("./stellars-gui/resources/River Raid.bin"));
+        self.libstellars.read().unwrap().load_rom(PathBuf::from("./stellars-gui/resources/ET.a26"));
 
         let stellars = self.libstellars.clone();
         let picture_buffer = self.picture_buffer.clone();

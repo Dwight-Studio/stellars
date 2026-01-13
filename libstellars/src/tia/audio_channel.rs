@@ -49,7 +49,7 @@ impl AudioChannel {
 
     pub fn next_sample(&mut self) -> u8 {
         let frequency: f64 = NTSC_TIA_AUDIO_CLOCK as f64 / ((self.audf & 0x1F) + 1) as f64;
-        let volume = self.audv + 0x80;
+        let volume = 128 + (((self.audv & 0xF) as u16 * 127) / 15) as u8;
         let mut incr: f64 = 0.0;
         let mut sample = 0x80;
 
