@@ -1,8 +1,9 @@
+use std::num::NonZeroU32;
 use libstellars::{Color, Stellar, SCREEN_HEIGHT, SCREEN_WIDTH};
-use pixels::{wgpu, Pixels, PixelsBuilder, SurfaceTexture};
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use std::time::{Duration, Instant};
+use softbuffer::{Context, Surface};
 use winit::dpi::PhysicalSize;
 use winit::event::ElementState;
 use winit::keyboard::{KeyCode, PhysicalKey};
@@ -13,7 +14,7 @@ use crate::app::debugger_state::DebuggerState;
 
 pub struct StellarsRender {
     pub window: Arc<Window>,
-    render_buffer: Pixels<'static>,
+    render_surface: Surface<Arc<Window>, Arc<Window>>,
     picture_buffer: Arc<RwLock<[Color; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize]>>,
     scale_factor: (u32, u32),
     target_framerate: f64,
@@ -23,27 +24,15 @@ pub struct StellarsRender {
 
 impl StellarsRender {
     pub fn new(window: Arc<Window>, libstellars: Arc<RwLock<Stellar>>) -> Self {
+        let ctx = Context::new(window.clone()).unwrap();
+        let mut surface = Surface::new(&ctx, window.clone()).unwrap();
         let scale_factor = (window.inner_size().width / SCREEN_WIDTH, window.inner_size().height / SCREEN_HEIGHT);
-        let surface_texture = SurfaceTexture::new(
-            SCREEN_WIDTH * scale_factor.0,
-            SCREEN_HEIGHT * scale_factor.1,
-            window.clone(),
-        );
-        let mut pixels = PixelsBuilder::new(
-            SCREEN_WIDTH * scale_factor.0,
-            SCREEN_HEIGHT * scale_factor.1,
-            surface_texture,
-        )
-        .blend_state(wgpu::BlendState::REPLACE)
-        .build()
-        .unwrap();
 
-        // Strange fix for blank window on Windows
-        pixels.enable_vsync(false);
+        surface.resize(NonZeroU32::new(SCREEN_WIDTH * scale_factor.0).unwrap(), NonZeroU32::new(SCREEN_HEIGHT * scale_factor.1).unwrap()).unwrap();
 
         Self {
             window,
-            render_buffer: pixels,
+            render_surface: surface,
             picture_buffer: Arc::new(RwLock::new([Color { r: 0x00, g: 0x00, b: 0x00 }; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize])),
             scale_factor,
             target_framerate: 60.0,
@@ -96,7 +85,7 @@ impl StellarsRender {
     }
 
     pub fn render(&mut self) {
-        let mut buff = Vec::<u8>::new();
+        let mut buff = Vec::<u32>::new();
         let picture_buffer = self.picture_buffer.read().unwrap();
         let mut line_buffer = [Color { r: 0x00, g: 0x00, b: 0x00 }; SCREEN_WIDTH as usize];
 
@@ -108,10 +97,7 @@ impl StellarsRender {
                 for _ in 0..self.scale_factor.1 {
                     for pixel in line_buffer {
                         for _ in 0..self.scale_factor.0 {
-                            buff.push(pixel.r);
-                            buff.push(pixel.g);
-                            buff.push(pixel.b);
-                            buff.push(0xFF);
+                            buff.push(((pixel.r as u32) << 16) | (pixel.g as u32) << 8 | pixel.b as u32);
                         }
                     }
                 }
@@ -120,16 +106,16 @@ impl StellarsRender {
 
         drop(picture_buffer);
 
-        let frame = self.render_buffer.frame_mut();
-        frame[..buff.len()].copy_from_slice(buff.as_slice());
+        if let Ok(mut frame) = self.render_surface.buffer_mut() {
+            frame[..buff.len()].copy_from_slice(buff.as_slice());
+        }
 
-        self.render_buffer.render().unwrap();
+        self.render_surface.buffer_mut().unwrap().present().unwrap();
     }
 
     pub fn resize(&mut self, _: PhysicalSize<u32>) {
         self.scale_factor = (self.window.inner_size().width / SCREEN_WIDTH, self.window.inner_size().height / SCREEN_HEIGHT);
-        self.render_buffer.resize_surface(SCREEN_WIDTH * self.scale_factor.0, SCREEN_HEIGHT * self.scale_factor.1).unwrap();
-        self.render_buffer.resize_buffer(SCREEN_WIDTH * self.scale_factor.0, SCREEN_HEIGHT * self.scale_factor.1).unwrap();
+        self.render_surface.resize(NonZeroU32::new(SCREEN_WIDTH * self.scale_factor.0).unwrap(), NonZeroU32::new(SCREEN_HEIGHT * self.scale_factor.1).unwrap()).unwrap();
     }
 
     pub fn update_inputs(&mut self, keycode: PhysicalKey, state: ElementState, input_device: InputDevice) {
