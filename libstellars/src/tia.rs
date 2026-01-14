@@ -56,6 +56,8 @@ pub enum WORegs {
     Vdelp0  = 0x25,
     Vdelp1  = 0x26,
     Vdelbl  = 0x27,
+    Resmp0  = 0x28,
+    Resmp1  = 0x29,
     Hmove   = 0x2A,
     Hmclr   = 0x2B,
 
@@ -183,7 +185,7 @@ impl Tia {
             WORegs::Wsync => { self.wo_regs[address as usize] = 0x1; }
             WORegs::Resp0 => { self.player0.counter_reset(false); }
             WORegs::Resp1 => { self.player1.counter_reset(false); }
-            WORegs::Resm0 => { self.missile0.counter_reset(true); }
+            WORegs::Resm0 => { self.missile0.counter_reset(false); }
             WORegs::Resm1 => { self.missile1.counter_reset(false); }
             WORegs::Resbl => { self.ball.counter_reset(false); }
             WORegs::Audc0 => { if let Some(channel) = &mut self.channel_0 { channel.set_audc(value) } }
@@ -192,25 +194,33 @@ impl Tia {
             WORegs::Audf1 => { if let Some(channel) = &mut self.channel_1 { channel.set_audf(value) } }
             WORegs::Audv0 => { if let Some(channel) = &mut self.channel_0 { channel.set_audv(value) } }
             WORegs::Audv1 => { if let Some(channel) = &mut self.channel_1 { channel.set_audv(value) } }
+            WORegs::Grp0  => {
+                self.player0.set_vdel_new(value);
+                self.player1.set_vdel_old(self.player1.get_vdel_new().value);
+            }
+            WORegs::Grp1  => {
+                self.player1.set_vdel_new(value);
+                self.player0.set_vdel_old(self.player0.get_vdel_new().value);
+                self.ball.set_vdel_old(self.ball.get_vdel_new().value);
+            }
+            WORegs::Enabl => { self.ball.set_vdel_new(value); }
             WORegs::Hmove => {
                 self.wo_regs[address as usize] = 8;
 
-                // TODO: Counter shoudl be incremented based on the clock count instead doing all the
-                //       increments all at once
                 let fbc_val = (self.get_wo_reg(WORegs::Hmm0).value >> 4) ^ 0x8;
-                self.missile0.counter_increment(fbc_val);
+                self.missile0.move_to(fbc_val);
 
                 let fbc_val = (self.get_wo_reg(WORegs::Hmm1).value >> 4) ^ 0x8;
-                self.missile1.counter_increment(fbc_val);
+                self.missile1.move_to(fbc_val);
 
                 let fbc_val = (self.get_wo_reg(WORegs::Hmbl).value >> 4) ^ 0x8;
-                self.ball.counter_increment(fbc_val);
+                self.ball.move_to(fbc_val);
 
                 let fbc_val = (self.get_wo_reg(WORegs::Hmp0).value >> 4) ^ 0x8;
-                self.player0.counter_increment(fbc_val);
+                self.player0.move_to(fbc_val);
 
                 let fbc_val = (self.get_wo_reg(WORegs::Hmp1).value >> 4) ^ 0x8;
-                self.player1.counter_increment(fbc_val);
+                self.player1.move_to(fbc_val);
             }
             WORegs::Hmclr => {
                 self.wo_regs[WORegs::Hmm0 as usize] = 0x00;
@@ -333,15 +343,20 @@ impl Tia {
         let missile_can_draw            = if missile == 0 { self.missile0.can_draw() } else { self.missile1.can_draw() };
         let missile_enable              = if missile == 0 { self.get_wo_reg(WORegs::Enam0) } else { self.get_wo_reg(WORegs::Enam1) };
         let missile_color               = if missile == 0 { self.get_wo_reg(WORegs::Colup0) } else { self.get_wo_reg(WORegs::Colup1) };
-        let (missile_size, missile_nb)  = if missile == 0 { (self.get_wo_reg(WORegs::Nusiz0).value >> 4 & 0x3, self.get_wo_reg(WORegs::Nusiz0).value & 0x7) } else { (self.get_wo_reg(WORegs::Nusiz1).value >> 4 & 0x3, self.get_wo_reg(WORegs::Nusiz1).value & 0x7) };
+        let (missile_size, mut missile_nb)  = if missile == 0 { (self.get_wo_reg(WORegs::Nusiz0).value >> 4 & 0x3, self.get_wo_reg(WORegs::Nusiz0).value & 0x7) } else { (self.get_wo_reg(WORegs::Nusiz1).value >> 4 & 0x3, self.get_wo_reg(WORegs::Nusiz1).value & 0x7) };
         let missile_count               = if missile == 0 { self.missile0.count() } else { self.missile1.count() };
+        let missile_resetp              = if missile == 0 { self.get_wo_reg(WORegs::Resmp0) } else { self.get_wo_reg(WORegs::Resmp1) };
         let mut triggered               = false;
 
-        for trigger in PM_NUMBER[missile_nb as usize] {
-            let trigg = trigger + 4;
-            if  missile_count >= trigg && missile_count - trigg < PMB_SIZE[missile_size as usize] {
-                triggered = true;
-                break;
+        if missile_nb == 0b101 || missile_nb == 0b111 { missile_nb = 0; }
+
+        if !missile_resetp.bit(1) {
+            for trigger in PM_NUMBER[missile_nb as usize] {
+                let trigg = trigger + 4;
+                if missile_count >= trigg && missile_count - trigg < PMB_SIZE[missile_size as usize] {
+                    triggered = true;
+                    break;
+                }
             }
         }
 
@@ -357,25 +372,57 @@ impl Tia {
     }
 
     fn draw_player(&mut self, player: u8) {
-        let player_can_draw = if player == 0 { self.player0.can_draw() } else { self.player1.can_draw() };
-        let player_color    = if player == 0 { self.get_wo_reg(WORegs::Colup0) } else { self.get_wo_reg(WORegs::Colup1) };
-        let player_nb       = if player == 0 { self.get_wo_reg(WORegs::Nusiz0).value & 0x7 } else { self.get_wo_reg(WORegs::Nusiz1).value & 0x7 };
-        let player_count    = if player == 0 { self.player0.count() } else { self.player1.count() };
-        let mut player_graphic = if player == 0 { self.get_wo_reg(WORegs::Grp0) } else { self.get_wo_reg(WORegs::Grp1) };
-        let player_refl     = if player == 0 { self.get_wo_reg(WORegs::Refp0) } else { self.get_wo_reg(WORegs::Refp1) };
-        let mut triggered   = false;
+        let player_can_draw     = if player == 0 { self.player0.can_draw() } else { self.player1.can_draw() };
+        let player_color        = if player == 0 { self.get_wo_reg(WORegs::Colup0) } else { self.get_wo_reg(WORegs::Colup1) };
+        let player_nb           = if player == 0 { self.get_wo_reg(WORegs::Nusiz0).value & 0x7 } else { self.get_wo_reg(WORegs::Nusiz1).value & 0x7 };
+        let player_count        = if player == 0 { self.player0.count() } else { self.player1.count() };
+        let mut player_graphic  = if player == 0 {
+            if self.get_wo_reg(WORegs::Vdelp0).bit(0) {
+                self.player0.get_vdel_old()
+            } else {
+                self.player0.get_vdel_new()
+            }
+        } else if self.get_wo_reg(WORegs::Vdelp1).bit(0) {
+            self.player1.get_vdel_old()
+        } else {
+            self.player1.get_vdel_new()
+        };
+        let player_refl         = if player == 0 { self.get_wo_reg(WORegs::Refp0) } else { self.get_wo_reg(WORegs::Refp1) };
+        let missile_resetp      = if player == 0 { self.get_wo_reg(WORegs::Resmp0) } else { self.get_wo_reg(WORegs::Resmp1) };
+        let mut triggered       = false;
 
         if player_refl.bit(3) { player_graphic = player_graphic.reverse_bits(); }
 
         for trigger in PM_NUMBER[player_nb as usize] {
             let trigg = trigger + 5;
             if player_nb == 0b101 && player_count >= 5 && player_count - 5 < 8 * 2 {
+                if missile_resetp.bit(1) && player_count - 5 == 8 {
+                    if player == 0 {
+                        self.missile0.counter_reset(true);
+                    } else {
+                        self.missile1.counter_reset(true);
+                    }
+                }
                 triggered = player_graphic.bit((15 - (player_count - 5)) / 2);
                 break;
             } else if player_nb == 0b111 && player_count >= 5 && player_count - 5 < 8 * 4 {
+                if missile_resetp.bit(1) && player_count - 5 == 8 * 2 {
+                    if player == 0 {
+                        self.missile0.counter_reset(true);
+                    } else {
+                        self.missile1.counter_reset(true);
+                    }
+                }
                 triggered = player_graphic.bit((31 - (player_count - 5)) / 4);
                 break;
             } else if player_count >= trigg && player_count - trigg < 8 {
+                if missile_resetp.bit(1) && *trigger == 0 && player_count - 5 == 8 / 2 {
+                    if player == 0 {
+                        self.missile0.counter_reset(true);
+                    } else {
+                        self.missile1.counter_reset(true);
+                    }
+                }
                 triggered = player_graphic.bit(7 - (player_count - trigg));
                 break;
             }
@@ -389,7 +436,9 @@ impl Tia {
     }
 
     fn draw_ball(&mut self) {
-        if self.get_wo_reg(WORegs::Enabl).bit(1) && self.ball.count() < PMB_SIZE[((self.get_wo_reg(WORegs::Ctrlpf).value >> 4) & 0x3) as usize] {
+        let ball_enable = if self.get_wo_reg(WORegs::Vdelbl).bit(0) { self.ball.get_vdel_old().bit(0) } else { self.ball.get_vdel_new().bit(0) };
+
+        if ball_enable && self.ball.count() < PMB_SIZE[((self.get_wo_reg(WORegs::Ctrlpf).value >> 4) & 0x3) as usize] {
             self.pic_buffer[self.pic_y as usize * SCREEN_WIDTH as usize + (self.pic_x as usize - 68)] = NTSC_COLORS[self.get_wo_reg(WORegs::Colupf).value as usize];
         } else if self.get_wo_reg(WORegs::Ctrlpf).bit(2) {
             self.draw_player(0);
