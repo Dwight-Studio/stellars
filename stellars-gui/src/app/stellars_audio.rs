@@ -14,7 +14,7 @@ impl StellarsAudio {
         if  let Some(device) = cpal::default_host().default_output_device() &&
             let Ok(mut configs) = device.supported_output_configs()
         {
-            let supported_config = configs.find(|c| c.sample_format() == SampleFormat::U8 && c.channels() == 2);
+            let supported_config = configs.find(|c| c.sample_format() == SampleFormat::I16 && c.channels() == 2);
 
             if let Some(supported_config) = supported_config {
                 let config = supported_config.with_max_sample_rate();
@@ -54,14 +54,16 @@ impl StellarsAudio {
 }
 
 fn audio_callback<T>(data: &mut [T], stellars: Arc<RwLock<Stellar>>)
-where T: Sample + FromSample<u8>
+where T: Sample + FromSample<i16>
 {
     let ch0_samples = stellars.read().unwrap().get_channel_0_samples(data.len());
     let ch1_samples = stellars.read().unwrap().get_channel_1_samples(data.len());
 
     for (sample_index, frame) in data.chunks_mut(1).enumerate() {
         for sample in frame.iter_mut() {
-            *sample = T::from_sample(((ch0_samples[sample_index] | ch1_samples[sample_index]) as f64 * 0.1) as u8);
+            let ch0_sample: i16 = ((ch0_samples[sample_index] as u32 * 32767) / 127) as i16;
+            let ch1_sample: i16 = ((ch1_samples[sample_index] as u32 * 32767) / 127) as i16;
+            *sample = T::from_sample((ch0_sample as f32 * 0.1) as i16 | (ch1_sample as f32 * 0.1) as i16);
         }
     }
 }

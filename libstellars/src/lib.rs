@@ -123,9 +123,12 @@ impl Stellar {
         let data: u8;
 
         if (address & 0b1_0000_0000_0000) == 0 && (address & 0b1000_0000) == 0 { // TIA Mirrors
-            /*todo!("Input and collision latches")*/
             address &= 0x000F;
-            data = self.controller.read().unwrap().read_inputs(address);
+            if address < 0x8 {
+                data = self.tia.read().unwrap().read(address);
+            } else {
+                data = self.controller.read().unwrap().read_inputs(address);
+            }
         } else if (address & 0b1_0000_0000_0000) == 0 && (address & 0b10_0000_0000) == 0 && (address & 0b1000_0000) != 0 { // PIA RAM Mirrors
             data = self.memory.read().unwrap().ram[(address & 0x7F) as usize];
         } else if (address & 0b1_0000_0000_0000) == 0 && (address & 0b10_0000_0000) != 0 && (address & 0b1000_0000) != 0 { // PIA I/O Mirrors

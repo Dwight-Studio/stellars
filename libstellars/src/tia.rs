@@ -60,6 +60,7 @@ pub enum WORegs {
     Resmp1  = 0x29,
     Hmove   = 0x2A,
     Hmclr   = 0x2B,
+    Cxclr   = 0x2C,
 
     Unknown = 0xFF,
 }
@@ -107,14 +108,22 @@ impl From<u8> for WORegs {
             0x27 => WORegs::Vdelbl,
             0x2A => WORegs::Hmove,
             0x2B => WORegs::Hmclr,
+            0x2C => WORegs::Cxclr,
             _ => WORegs::Unknown, // Default fallback for unrecognized values
         }
     }
 }
-/*#[repr(u8)]
+#[repr(u8)]
 pub enum RORegs {
-    NoneForNow = 0x00,
-}*/
+    Cxm0p  = 0x00,
+    Cxm1p  = 0x01,
+    Cxp0fb = 0x02,
+    Cxp1fb = 0x03,
+    Cxm0fb = 0x04,
+    Cxm1fb = 0x05,
+    Cxblpf = 0x06,
+    Cxppmm = 0x07,
+}
 
 pub struct Tia {
     pub(crate) bus: Option<Weak<RwLock<Stellar>>>,
@@ -123,7 +132,7 @@ pub struct Tia {
 
     /* Registers */
     wo_regs: [u8; 0x2D],
-    // ro_regs: [u8; 0x0E],
+    ro_regs: [u8; 0x0E],
 
     /* Internals */
     pic_x: u16,
@@ -154,7 +163,7 @@ impl Tia {
             },
 
             wo_regs: [0x00; 0x2D],
-            // ro_regs: [0; 0x0E],
+            ro_regs: [0; 0x0E],
 
             pic_x: 0x0000,
             pic_y: 0x0000,
@@ -229,12 +238,26 @@ impl Tia {
                 self.wo_regs[WORegs::Hmp0 as usize] = 0x00;
                 self.wo_regs[WORegs::Hmp1 as usize] = 0x00;
             }
+            WORegs::Cxclr => {
+                self.ro_regs[RORegs::Cxm0p as usize] = 0x00;
+                self.ro_regs[RORegs::Cxm1p as usize] = 0x00;
+                self.ro_regs[RORegs::Cxp0fb as usize] = 0x00;
+                self.ro_regs[RORegs::Cxp1fb as usize] = 0x00;
+                self.ro_regs[RORegs::Cxm0fb as usize] = 0x00;
+                self.ro_regs[RORegs::Cxm1fb as usize] = 0x00;
+                self.ro_regs[RORegs::Cxblpf as usize] = 0x00;
+                self.ro_regs[RORegs::Cxppmm as usize] = 0x00;
+            }
             _ => { self.wo_regs[address as usize] = value; }
         }
     }
 
     pub fn get_wo_reg(&self, address: WORegs) -> Register {
         Register::new(self.wo_regs[address as usize])
+    }
+
+    pub fn read(&self, address: u16) -> u8 {
+        self.ro_regs[address as usize]
     }
 
     pub fn unsafe_read(&self, address: u16) -> u8 {
@@ -331,7 +354,7 @@ impl Tia {
             if self.get_wo_reg(WORegs::Ctrlpf).bit(1) {
                 color = if rel_pic_x < SCREEN_WIDTH as u16 / 2 { WORegs::Colup0 } else { WORegs::Colup1 };
             }
-            self.pic_buffer[self.pic_y as usize * SCREEN_WIDTH as usize + (self.pic_x as usize - 68)] = NTSC_COLORS[self.get_wo_reg(color).value as usize];
+            self.push_pixel(color);
         } else if self.get_wo_reg(WORegs::Ctrlpf).bit(2) {
             self.draw_ball();
         } else {
@@ -342,7 +365,7 @@ impl Tia {
     fn draw_missile(&mut self, missile: u8) {
         let missile_can_draw            = if missile == 0 { self.missile0.can_draw() } else { self.missile1.can_draw() };
         let missile_enable              = if missile == 0 { self.get_wo_reg(WORegs::Enam0) } else { self.get_wo_reg(WORegs::Enam1) };
-        let missile_color               = if missile == 0 { self.get_wo_reg(WORegs::Colup0) } else { self.get_wo_reg(WORegs::Colup1) };
+        let missile_color               = if missile == 0 { WORegs::Colup0 } else { WORegs::Colup1 };
         let (missile_size, mut missile_nb)  = if missile == 0 { (self.get_wo_reg(WORegs::Nusiz0).value >> 4 & 0x3, self.get_wo_reg(WORegs::Nusiz0).value & 0x7) } else { (self.get_wo_reg(WORegs::Nusiz1).value >> 4 & 0x3, self.get_wo_reg(WORegs::Nusiz1).value & 0x7) };
         let missile_count               = if missile == 0 { self.missile0.count() } else { self.missile1.count() };
         let missile_resetp              = if missile == 0 { self.get_wo_reg(WORegs::Resmp0) } else { self.get_wo_reg(WORegs::Resmp1) };
@@ -361,7 +384,7 @@ impl Tia {
         }
 
         if missile_can_draw && missile_enable.bit(1) && triggered {
-            self.pic_buffer[self.pic_y as usize * SCREEN_WIDTH as usize + (self.pic_x as usize - 68)] = NTSC_COLORS[missile_color.value as usize];
+            self.push_pixel(missile_color);
         } else if missile == 0 {
             self.draw_player(1);
         } else if self.get_wo_reg(WORegs::Ctrlpf).bit(2) {
@@ -373,7 +396,7 @@ impl Tia {
 
     fn draw_player(&mut self, player: u8) {
         let player_can_draw     = if player == 0 { self.player0.can_draw() } else { self.player1.can_draw() };
-        let player_color        = if player == 0 { self.get_wo_reg(WORegs::Colup0) } else { self.get_wo_reg(WORegs::Colup1) };
+        let player_color        = if player == 0 { WORegs::Colup0 } else { WORegs::Colup1 };
         let player_nb           = if player == 0 { self.get_wo_reg(WORegs::Nusiz0).value & 0x7 } else { self.get_wo_reg(WORegs::Nusiz1).value & 0x7 };
         let player_count        = if player == 0 { self.player0.count() } else { self.player1.count() };
         let mut player_graphic  = if player == 0 {
@@ -429,7 +452,7 @@ impl Tia {
         }
 
         if player_can_draw && player_graphic.value != 0x00 && triggered {
-            self.pic_buffer[self.pic_y as usize * SCREEN_WIDTH as usize + (self.pic_x as usize - 68)] = NTSC_COLORS[player_color.value as usize];
+            self.push_pixel(player_color);
         } else {
             self.draw_missile(player);
         }
@@ -439,7 +462,7 @@ impl Tia {
         let ball_enable = if self.get_wo_reg(WORegs::Vdelbl).bit(0) { self.ball.get_vdel_old().bit(0) } else { self.ball.get_vdel_new().bit(0) };
 
         if ball_enable && self.ball.count() < PMB_SIZE[((self.get_wo_reg(WORegs::Ctrlpf).value >> 4) & 0x3) as usize] {
-            self.pic_buffer[self.pic_y as usize * SCREEN_WIDTH as usize + (self.pic_x as usize - 68)] = NTSC_COLORS[self.get_wo_reg(WORegs::Colupf).value as usize];
+            self.push_pixel(WORegs::Colupf);
         } else if self.get_wo_reg(WORegs::Ctrlpf).bit(2) {
             self.draw_player(0);
         } else {
@@ -448,6 +471,10 @@ impl Tia {
     }
 
     fn draw_background(&mut self) {
-        self.pic_buffer[self.pic_y as usize * SCREEN_WIDTH as usize + (self.pic_x as usize - 68)] = NTSC_COLORS[self.get_wo_reg(WORegs::Colubk).value as usize];
+        self.push_pixel(WORegs::Colubk);
+    }
+
+    fn push_pixel(&mut self, color_reg: WORegs) {
+        self.pic_buffer[self.pic_y as usize * SCREEN_WIDTH as usize + (self.pic_x as usize - 68)] = NTSC_COLORS[self.get_wo_reg(color_reg).value as usize];
     }
 }
