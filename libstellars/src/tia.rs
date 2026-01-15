@@ -125,6 +125,16 @@ pub enum RORegs {
     Cxppmm = 0x07,
 }
 
+#[derive(Default)]
+struct Collision {
+    pub player0: Option<WORegs>,
+    pub player1: Option<WORegs>,
+    pub missile0: Option<WORegs>,
+    pub missile1: Option<WORegs>,
+    pub ball: Option<WORegs>,
+    pub playfield: Option<WORegs>
+}
+
 pub struct Tia {
     pub(crate) bus: Option<Weak<RwLock<Stellar>>>,
     pub(crate) pic_buffer: [Color; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize],
@@ -145,6 +155,7 @@ pub struct Tia {
     ball: Object,
     player0: Object,
     player1: Object,
+    collision: Collision,
 
     channel_0: Option<AudioChannel>,
     channel_1: Option<AudioChannel>,
@@ -175,6 +186,7 @@ impl Tia {
             ball:     Object::new(),
             player0:  Object::new(),
             player1:  Object::new(),
+            collision: Collision::default(),
 
             channel_0: None,
             channel_1: None,
@@ -279,15 +291,51 @@ impl Tia {
 
                 if self.pic_x >= 68 + self.get_wo_reg(WORegs::Hmove).value as u16 && self.pic_y < SCREEN_HEIGHT as u16 {
                     if self.pic_y >= 37 {
+                        self.check_player(0);
+                        self.check_player(1);
+                        self.check_missile(1);
+                        self.check_missile(1);
+                        self.check_ball();
+                        self.check_playfield();
+
+                        self.compute_collisions();
+
                         if self.get_wo_reg(WORegs::Ctrlpf).bit(2) {
-                            self.draw_playfield();
+                            if let Some(color) = self.collision.playfield {
+                                self.push_pixel(color);
+                            } else if let Some(color) = self.collision.ball {
+                                self.push_pixel(color);
+                            } else if let Some(color) = self.collision.player0 {
+                                self.push_pixel(color);
+                            } else if let Some(color) = self.collision.missile0 {
+                                self.push_pixel(color);
+                            } else if let Some(color) = self.collision.player1 {
+                                self.push_pixel(color);
+                            } else if let Some(color) = self.collision.missile1 {
+                                self.push_pixel(color);
+                            } else {
+                                self.draw_background();
+                            }
+                        } else if let Some(color) = self.collision.player0 {
+                            self.push_pixel(color);
+                        } else if let Some(color) = self.collision.missile0 {
+                            self.push_pixel(color);
+                        } else if let Some(color) = self.collision.player1 {
+                            self.push_pixel(color);
+                        } else if let Some(color) = self.collision.missile1 {
+                            self.push_pixel(color);
+                        } else if let Some(color) = self.collision.ball {
+                            self.push_pixel(color);
+                        } else if let Some(color) = self.collision.playfield {
+                            self.push_pixel(color);
                         } else {
-                            self.draw_player(0);
+                            self.draw_background();
                         }
                     } else {
                         self.pic_buffer[self.pic_y as usize * SCREEN_WIDTH as usize + (self.pic_x as usize - 68)] = NTSC_COLORS[0x00];
                     }
 
+                    self.collision = Collision::default();
                     self.missile0.update();
                     self.missile1.update();
                     self.ball.update();
@@ -342,7 +390,7 @@ impl Tia {
         self.tia_debug
     }
 
-    fn draw_playfield(&mut self) {
+    fn check_playfield(&mut self) {
         let rel_pic_x = self.pic_x - 68;
         let pf_register = (self.get_wo_reg(WORegs::Pf0).value.reverse_bits() as u32) << 16 | (self.get_wo_reg(WORegs::Pf1).value as u32) << 8 | (self.get_wo_reg(WORegs::Pf2).value.reverse_bits() as u32);
 
@@ -354,15 +402,12 @@ impl Tia {
             if self.get_wo_reg(WORegs::Ctrlpf).bit(1) {
                 color = if rel_pic_x < SCREEN_WIDTH as u16 / 2 { WORegs::Colup0 } else { WORegs::Colup1 };
             }
-            self.push_pixel(color);
-        } else if self.get_wo_reg(WORegs::Ctrlpf).bit(2) {
-            self.draw_ball();
-        } else {
-            self.draw_background();
+            //self.push_pixel(color);
+            self.collision.playfield = Some(color);
         }
     }
 
-    fn draw_missile(&mut self, missile: u8) {
+    fn check_missile(&mut self, missile: u8) {
         let missile_can_draw            = if missile == 0 { self.missile0.can_draw() } else { self.missile1.can_draw() };
         let missile_enable              = if missile == 0 { self.get_wo_reg(WORegs::Enam0) } else { self.get_wo_reg(WORegs::Enam1) };
         let missile_color               = if missile == 0 { WORegs::Colup0 } else { WORegs::Colup1 };
@@ -384,17 +429,12 @@ impl Tia {
         }
 
         if missile_can_draw && missile_enable.bit(1) && triggered {
-            self.push_pixel(missile_color);
-        } else if missile == 0 {
-            self.draw_player(1);
-        } else if self.get_wo_reg(WORegs::Ctrlpf).bit(2) {
-            self.draw_background();
-        } else {
-            self.draw_ball();
+            //self.push_pixel(missile_color);
+            if missile == 0 { self.collision.missile0 = Some(missile_color) } else { self.collision.missile1 = Some(missile_color) };
         }
     }
 
-    fn draw_player(&mut self, player: u8) {
+    fn check_player(&mut self, player: u8) {
         let player_can_draw     = if player == 0 { self.player0.can_draw() } else { self.player1.can_draw() };
         let player_color        = if player == 0 { WORegs::Colup0 } else { WORegs::Colup1 };
         let player_nb           = if player == 0 { self.get_wo_reg(WORegs::Nusiz0).value & 0x7 } else { self.get_wo_reg(WORegs::Nusiz1).value & 0x7 };
@@ -452,21 +492,17 @@ impl Tia {
         }
 
         if player_can_draw && player_graphic.value != 0x00 && triggered {
-            self.push_pixel(player_color);
-        } else {
-            self.draw_missile(player);
+            //self.push_pixel(player_color);
+            if player == 0 { self.collision.player0 = Some(player_color) } else { self.collision.player1 = Some(player_color) };
         }
     }
 
-    fn draw_ball(&mut self) {
+    fn check_ball(&mut self) {
         let ball_enable = if self.get_wo_reg(WORegs::Vdelbl).bit(0) { self.ball.get_vdel_old().bit(0) } else { self.ball.get_vdel_new().bit(0) };
 
         if ball_enable && self.ball.count() < PMB_SIZE[((self.get_wo_reg(WORegs::Ctrlpf).value >> 4) & 0x3) as usize] {
-            self.push_pixel(WORegs::Colupf);
-        } else if self.get_wo_reg(WORegs::Ctrlpf).bit(2) {
-            self.draw_player(0);
-        } else {
-            self.draw_playfield();
+            //self.push_pixel(WORegs::Colupf);
+            self.collision.ball = Some(WORegs::Colupf);
         }
     }
 
@@ -476,5 +512,23 @@ impl Tia {
 
     fn push_pixel(&mut self, color_reg: WORegs) {
         self.pic_buffer[self.pic_y as usize * SCREEN_WIDTH as usize + (self.pic_x as usize - 68)] = NTSC_COLORS[self.get_wo_reg(color_reg).value as usize];
+    }
+
+    fn compute_collisions(&mut self) {
+        if self.collision.missile0.is_some() && self.collision.player1.is_some() { self.ro_regs[RORegs::Cxm0p as usize] |= 0b1 }
+        if self.collision.missile0.is_some() && self.collision.player0.is_some() { self.ro_regs[RORegs::Cxm0p as usize] |= 0b01 }
+        if self.collision.missile1.is_some() && self.collision.player0.is_some() { self.ro_regs[RORegs::Cxm1p as usize] |= 0b1 }
+        if self.collision.missile1.is_some() && self.collision.player1.is_some() { self.ro_regs[RORegs::Cxm1p as usize] |= 0b01 }
+        if self.collision.player0.is_some() && self.collision.playfield.is_some() { self.ro_regs[RORegs::Cxp0fb as usize] |= 0b1 }
+        if self.collision.player0.is_some() && self.collision.ball.is_some() { self.ro_regs[RORegs::Cxp0fb as usize] |= 0b01 }
+        if self.collision.player1.is_some() && self.collision.playfield.is_some() { self.ro_regs[RORegs::Cxp1fb as usize] |= 0b1 }
+        if self.collision.player1.is_some() && self.collision.ball.is_some() { self.ro_regs[RORegs::Cxp1fb as usize] |= 0b01 }
+        if self.collision.missile0.is_some() && self.collision.playfield.is_some() { self.ro_regs[RORegs::Cxm0fb as usize] |= 0b1 }
+        if self.collision.missile0.is_some() && self.collision.ball.is_some() { self.ro_regs[RORegs::Cxm0fb as usize] |= 0b01 }
+        if self.collision.missile1.is_some() && self.collision.playfield.is_some() { self.ro_regs[RORegs::Cxm1fb as usize] |= 0b1 }
+        if self.collision.missile1.is_some() && self.collision.ball.is_some() { self.ro_regs[RORegs::Cxm1fb as usize] |= 0b01 }
+        if self.collision.ball.is_some() && self.collision.playfield.is_some() { self.ro_regs[RORegs::Cxblpf as usize] |= 0b1 }
+        if self.collision.player0.is_some() && self.collision.player1.is_some() { self.ro_regs[RORegs::Cxppmm as usize] |= 0b1 }
+        if self.collision.missile0.is_some() && self.collision.missile1.is_some() { self.ro_regs[RORegs::Cxppmm as usize] |= 0b01 }
     }
 }
