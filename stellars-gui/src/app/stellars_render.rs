@@ -8,7 +8,8 @@ use winit::dpi::PhysicalSize;
 use winit::event::ElementState;
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::Window;
-use libstellars::controller::{Input, InputDevice, Joystick};
+use libstellars::controller::{Console, Input, InputDevice, Joystick};
+use libstellars::controller::Console::{P0DifficultyA, P0DifficultyB, P1DifficultyA, P1DifficultyB, Reset, Select};
 use libstellars::controller::Keypad::{R0C0, R0C1, R0C2, R1C0, R1C1, R1C2, R2C0, R2C1, R2C2, R3C0, R3C1, R3C2};
 use crate::app::debugger_state::DebuggerState;
 
@@ -42,7 +43,7 @@ impl StellarsRender {
     }
 
     pub fn run(&mut self) {
-        self.libstellars.read().unwrap().load_rom(PathBuf::from("./stellars-gui/resources/ET.a26"));
+        self.libstellars.read().unwrap().load_rom(PathBuf::from("./stellars-gui/resources/F8/space_shuttle.bin"));
 
         let stellars = self.libstellars.clone();
         let picture_buffer = self.picture_buffer.clone();
@@ -121,36 +122,53 @@ impl StellarsRender {
     pub fn update_inputs(&mut self, keycode: PhysicalKey, state: ElementState, input_device: InputDevice) {
         let pressed = state.is_pressed();
 
-        let input: Input = match input_device {
-            InputDevice::Keypad => {
-                match keycode {
-                    PhysicalKey::Code(KeyCode::Numpad7) => Input::Keypad(R0C0),
-                    PhysicalKey::Code(KeyCode::Numpad8) => Input::Keypad(R0C1),
-                    PhysicalKey::Code(KeyCode::Numpad9) => Input::Keypad(R0C2),
-                    PhysicalKey::Code(KeyCode::Numpad4) => Input::Keypad(R1C0),
-                    PhysicalKey::Code(KeyCode::Numpad5) => Input::Keypad(R1C1),
-                    PhysicalKey::Code(KeyCode::Numpad6) => Input::Keypad(R1C2),
-                    PhysicalKey::Code(KeyCode::Numpad1) => Input::Keypad(R2C0),
-                    PhysicalKey::Code(KeyCode::Numpad2) => Input::Keypad(R2C1),
-                    PhysicalKey::Code(KeyCode::Numpad3) => Input::Keypad(R2C2),
-                    PhysicalKey::Code(KeyCode::Numpad0) => Input::Keypad(R3C0),
-                    PhysicalKey::Code(KeyCode::NumpadComma) => Input::Keypad(R3C1),
-                    PhysicalKey::Code(KeyCode::NumpadEnter) => Input::Keypad(R3C2),
-                    _ => return,
-                }
-            },
-            InputDevice::Joystick => {
-                match keycode {
-                    PhysicalKey::Code(KeyCode::ArrowRight) | PhysicalKey::Code(KeyCode::KeyD) => Input::Joystick(Joystick::Right), // Right
-                    PhysicalKey::Code(KeyCode::ArrowLeft) | PhysicalKey::Code(KeyCode::KeyA) => Input::Joystick(Joystick::Left), // Left
-                    PhysicalKey::Code(KeyCode::ArrowUp) | PhysicalKey::Code(KeyCode::KeyW) => Input::Joystick(Joystick::Up), // Up
-                    PhysicalKey::Code(KeyCode::ArrowDown) | PhysicalKey::Code(KeyCode::KeyS) => Input::Joystick(Joystick::Down), // Down
-                    PhysicalKey::Code(KeyCode::Enter) => Input::Joystick(Joystick::Button), // Button
-                    _ => return,
-                }
-            }
+        let mut input: Option<Input>;
+
+        input = match keycode {
+            PhysicalKey::Code(KeyCode::F2) => Some(Input::Console(Console::Color)),
+            PhysicalKey::Code(KeyCode::F3) => Some(Input::Console(Select)),
+            PhysicalKey::Code(KeyCode::F4) => Some(Input::Console(Reset)),
+            PhysicalKey::Code(KeyCode::F5) => Some(Input::Console(P0DifficultyA)),
+            PhysicalKey::Code(KeyCode::F6) => Some(Input::Console(P0DifficultyB)),
+            PhysicalKey::Code(KeyCode::F7) => Some(Input::Console(P1DifficultyA)),
+            PhysicalKey::Code(KeyCode::F8) => Some(Input::Console(P1DifficultyB)),
+            _ => None,
         };
 
-        self.libstellars.read().unwrap().update_inputs(input, pressed);
+        if input.is_none() {
+            input = match input_device {
+                InputDevice::Keypad => {
+                    match keycode {
+                        PhysicalKey::Code(KeyCode::Numpad7) => Some(Input::Keypad(R0C0)),
+                        PhysicalKey::Code(KeyCode::Numpad8) => Some(Input::Keypad(R0C1)),
+                        PhysicalKey::Code(KeyCode::Numpad9) => Some(Input::Keypad(R0C2)),
+                        PhysicalKey::Code(KeyCode::Numpad4) => Some(Input::Keypad(R1C0)),
+                        PhysicalKey::Code(KeyCode::Numpad5) => Some(Input::Keypad(R1C1)),
+                        PhysicalKey::Code(KeyCode::Numpad6) => Some(Input::Keypad(R1C2)),
+                        PhysicalKey::Code(KeyCode::Numpad1) => Some(Input::Keypad(R2C0)),
+                        PhysicalKey::Code(KeyCode::Numpad2) => Some(Input::Keypad(R2C1)),
+                        PhysicalKey::Code(KeyCode::Numpad3) => Some(Input::Keypad(R2C2)),
+                        PhysicalKey::Code(KeyCode::Numpad0) => Some(Input::Keypad(R3C0)),
+                        PhysicalKey::Code(KeyCode::NumpadComma) => Some(Input::Keypad(R3C1)),
+                        PhysicalKey::Code(KeyCode::NumpadEnter) => Some(Input::Keypad(R3C2)),
+                        _ => None,
+                    }
+                },
+                InputDevice::Joystick => {
+                    match keycode {
+                        PhysicalKey::Code(KeyCode::ArrowRight) | PhysicalKey::Code(KeyCode::KeyD) => Some(Input::Joystick(Joystick::Right)), // Right
+                        PhysicalKey::Code(KeyCode::ArrowLeft) | PhysicalKey::Code(KeyCode::KeyA) => Some(Input::Joystick(Joystick::Left)), // Left
+                        PhysicalKey::Code(KeyCode::ArrowUp) | PhysicalKey::Code(KeyCode::KeyW) => Some(Input::Joystick(Joystick::Up)), // Up
+                        PhysicalKey::Code(KeyCode::ArrowDown) | PhysicalKey::Code(KeyCode::KeyS) => Some(Input::Joystick(Joystick::Down)), // Down
+                        PhysicalKey::Code(KeyCode::Enter) => Some(Input::Joystick(Joystick::Button)), // Button
+                        _ => None,
+                    }
+                }
+            };
+        }
+
+        if let Some(input_value) = input {
+            self.libstellars.read().unwrap().update_inputs(input_value, pressed);
+        }
     }
 }

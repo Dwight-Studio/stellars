@@ -1,3 +1,6 @@
+use Console::{Color, P1DifficultyA, P1DifficultyB, Reset, Select};
+use crate::controller::Console::{P0DifficultyA, P0DifficultyB};
+
 #[repr(u16)]
 #[derive(PartialEq)]
 enum Functions {
@@ -21,7 +24,19 @@ pub enum InputDevice {
 
 pub enum Input {
     Joystick(Joystick),
-    Keypad(Keypad)
+    Keypad(Keypad),
+    Console(Console)
+}
+
+#[derive(PartialEq)]
+pub enum Console {
+    Reset,
+    Select,
+    Color,
+    P0DifficultyA,
+    P0DifficultyB,
+    P1DifficultyA,
+    P1DifficultyB
 }
 
 pub enum Keypad {
@@ -144,6 +159,27 @@ impl Controller {
                     } else {
                         self.inpt4 |= 0b1000_0000;
                     }
+                }
+            },
+            Input::Console(switch) => {
+                let (mask, real_switch) = match switch {
+                    Reset => (0b0000_0001, true),
+                    Select => (0b0000_0010, true),
+                    Color => (0b0000_1000, true),
+                    P0DifficultyA | P0DifficultyB => (0b0100_0000, false),
+                    P1DifficultyA | P1DifficultyB => (0b1000_0000, false),
+                };
+
+                if real_switch {
+                    if pressed {
+                        self.swchb &= !mask;
+                    } else {
+                        self.swchb |= mask;
+                    }
+                } else if switch == P0DifficultyA || switch == P1DifficultyA {
+                    self.swchb |= mask;
+                } else if switch == P0DifficultyB || switch == P1DifficultyB {
+                    self.swchb &= !mask;
                 }
             }
         }
