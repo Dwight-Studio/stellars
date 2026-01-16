@@ -1,4 +1,4 @@
-static NTSC_TIA_AUDIO_CLOCK: u16 = 31399;
+const NTSC_TIA_AUDIO_CLOCK: u16 = 31399;
 
 pub struct AudioChannel {
     audf: u8,

@@ -63,7 +63,7 @@ where T: Sample + FromSample<i16>
         for sample in frame.iter_mut() {
             let ch0_sample: i16 = ((ch0_samples[sample_index] as u32 * 32767) / 127) as i16;
             let ch1_sample: i16 = ((ch1_samples[sample_index] as u32 * 32767) / 127) as i16;
-            *sample = T::from_sample((ch0_sample as f32 * 0.1) as i16 | (ch1_sample as f32 * 0.1) as i16);
+            *sample = T::from_sample((((ch0_sample | ch1_sample) as f32) * 0.05) as i16);
         }
     }
 }

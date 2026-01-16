@@ -34,7 +34,7 @@ impl Object {
 
         if self.should_move {
             self.curr_move += 1;
-            if self.curr_move == 15 * 4 { self.curr_move = 0; }
+            if self.curr_move == 16 * 4 { self.curr_move = 0; }
             if self.curr_move.is_multiple_of(4) {
                 self.count += 1;
                 if self.count >= SCREEN_WIDTH as u8 { self.counter_reset(true); }

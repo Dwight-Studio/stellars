@@ -1,6 +1,6 @@
 use crate::Color;
 
-pub(crate) static NTSC_COLORS: [Color; 0x100] = {[
+pub(crate) const NTSC_COLORS: [Color; 0x100] = {[
     Color { r: 0x00, g: 0x00, b: 0x00 }, // 0x00
     Color { r: 0x00, g: 0x00, b: 0x00 }, // 0x01
     Color { r: 0x40, g: 0x40, b: 0x40 }, // 0x02
