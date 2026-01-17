@@ -2,6 +2,7 @@ pub mod half;
 pub mod full;
 pub mod f8;
 pub mod cv;
+pub mod f6;
 
 pub trait Mapper: Send + Sync {
     fn read_rom(&self, rom_data: &[u8], address: usize) -> u8;
