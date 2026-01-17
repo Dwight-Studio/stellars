@@ -7,7 +7,7 @@ impl Mapper for Half {
         rom_data[address]
     }
 
-    fn write_ram(&mut self, rom_data: &mut [u8], address: usize, value: u8) {}
+    fn write_ram(&mut self, _rom_data: &mut [u8], _address: usize, _value: u8) {}
 
-    fn check_switch(&mut self, address: u16) {}
+    fn check_switch(&mut self, _address: u16) {}
 }

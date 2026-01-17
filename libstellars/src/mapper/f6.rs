@@ -16,7 +16,7 @@ impl Mapper for F6 {
         rom_data[address + offset]
     }
 
-    fn write_ram(&mut self, rom_data: &mut [u8], address: usize, value: u8) {}
+    fn write_ram(&mut self, _rom_data: &mut [u8], _address: usize, _value: u8) {}
 
     fn check_switch(&mut self, address: u16) {
         if address == 0x1FF6 {
