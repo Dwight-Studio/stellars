@@ -6,6 +6,7 @@ use crate::debug::MemoryDebug;
 use crate::mapper::cv::CV;
 use crate::mapper::f8::F8;
 use crate::mapper::f6::F6;
+use crate::mapper::f4::F4;
 use crate::mapper::Mapper;
 use crate::mapper::full::Full;
 use crate::mapper::half::Half;
@@ -78,6 +79,9 @@ impl Memory {
                     data
                 } else if size == 16384 {
                     self.mapper = Box::new(F6::new());
+                    data
+                } else if size == 32768 {
+                    self.mapper = Box::new(F4::new());
                     data
                 } else {
                     panic!("Unknown rom size");
