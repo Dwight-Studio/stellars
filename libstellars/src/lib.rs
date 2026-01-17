@@ -18,6 +18,7 @@ mod tia;
 pub mod controller;
 mod pia;
 mod debug;
+mod mapper;
 
 pub const SCREEN_WIDTH: u32 = 160;
 pub const SCREEN_HEIGHT: u32 = 262;
@@ -169,6 +170,8 @@ impl Stellar {
             if address >= 0x14 {
                 self.pia.write().unwrap().write(address, value);
             }
+        } else if address >= 0x1000 {
+            self.memory.write().unwrap().write_game_ram((address - 0x1000) as usize, value);
         }
     }
 

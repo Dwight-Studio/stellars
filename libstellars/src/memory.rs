@@ -1,25 +1,21 @@
-use std::fs;
+use std::{fs, io};
+use std::io::Write;
 use std::path::PathBuf;
 use std::sync::{RwLock, Weak};
 use crate::debug::MemoryDebug;
-use crate::memory::BankSwitching::{Full, Half, F8};
+use crate::mapper::cv::CV;
+use crate::mapper::f8::F8;
+use crate::mapper::Mapper;
+use crate::mapper::full::Full;
+use crate::mapper::half::Half;
 use crate::Stellar;
-
-#[derive(PartialEq)]
-pub enum BankSwitching {
-    Half,
-    Full,
-    F8
-}
 
 #[cfg(not(feature = "test-utils"))]
 pub struct Memory {
     pub(crate) bus: Option<Weak<RwLock<Stellar>>>,
     pub(crate) ram: [u8; 0x80],
     pub(crate) game_rom: Vec<u8>,
-
-    pub(crate) bank_switching: BankSwitching,
-    pub(crate) selected_bank: u16
+    pub(crate) mapper: Box<dyn Mapper>
 }
 
 #[cfg(feature = "test-utils")]
@@ -34,11 +30,10 @@ impl Memory {
             bus: None,
             ram: [0x00; 0x80],      // RAM          : Mapped at 0x0080 - 0x00FF
             game_rom: Vec::new(),   // Game ROM Data: Mapped at 0xF000 - 0xFFFF
-            bank_switching: Full,
-            selected_bank: 0
+            mapper: Box::new(Full)
         }
     }
-    
+
     pub fn get_debug_info(&self) -> MemoryDebug {
         MemoryDebug {
             ram: self.ram
@@ -53,14 +48,32 @@ impl Memory {
                 let rom_data = if size == 2048 {
                     data.reserve(2048);
                     data.extend_from_within(0..2048);
-                    self.bank_switching = Half;
+
+                    println!("Choose cartridge banking :");
+                    println!("1 - Classic 2k");
+                    println!("2 - CV only for Commavid");
+                    let mut input: String = String::new();
+                    loop {
+                        print!("> ");
+                        io::stdout().flush().unwrap();
+                        io::stdin().read_line(&mut input).unwrap();
+                        if let Ok(value) = input.trim().parse::<u32>() {
+                            if value == 1 {
+                                self.mapper = Box::new(Half);
+                                break
+                            } else if value == 2 {
+                                self.mapper = Box::new(CV);
+                                break
+                            }
+                        }
+                    }
+
                     data
                 } else if size == 4096 {
-                    self.bank_switching = Full;
+                    self.mapper = Box::new(Full);
                     data
                 } else if size == 8192 {
-                    self.selected_bank = 1;
-                    self.bank_switching = F8;
+                    self.mapper = Box::new(F8::new());
                     data
                 } else {
                     panic!("Unknown rom size");
@@ -79,25 +92,15 @@ impl Memory {
     }
 
     pub fn read_game_rom(&self, address: usize) -> u8 {
-        if self.bank_switching == F8 {
-            if self.selected_bank == 0 {
-                self.game_rom[address]
-            } else {
-                self.game_rom[address + 0x1000]
-            }
-        } else {
-            self.game_rom[address]
-        }
+        self.mapper.read_rom(&self.game_rom, address)
+    }
+
+    pub fn write_game_ram(&mut self, address: usize, data: u8) {
+        self.mapper.write_ram(&mut self.game_rom, address, data);
     }
 
     pub fn check_bank_switching(&mut self, address: u16) {
-        if self.bank_switching == F8 {
-            if address == 0x1FF8 {
-                self.selected_bank = 0;
-            } else if address == 0x1FF9 {
-                self.selected_bank = 1;
-            }
-        }
+        self.mapper.check_switch(address);
     }
 }
 
