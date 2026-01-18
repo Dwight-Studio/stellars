@@ -1,5 +1,5 @@
 use std::sync::{Arc, RwLock};
-use cpal::{FromSample, Sample, SampleFormat, Stream, StreamError};
+use cpal::{ChannelCount, FromSample, Sample, SampleFormat, Stream, StreamError};
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use libstellars::Stellar;
 
@@ -14,20 +14,23 @@ impl StellarsAudio {
         if  let Some(device) = cpal::default_host().default_output_device() &&
             let Ok(mut configs) = device.supported_output_configs()
         {
-            let supported_config = configs.find(|c| c.sample_format() == SampleFormat::I16 && c.channels() == 2);
+            let supported_config = configs.find(|c| c.sample_format() == SampleFormat::I16);
 
             if let Some(supported_config) = supported_config {
                 let config = supported_config.with_max_sample_rate();
                 let sample_rate = config.sample_rate();
+                let channels = config.channels();
 
-                println!("Configured audio device with sample rate: {}", sample_rate);
+                println!("Configured audio device:");
+                println!("\tSample Rate: {}Hz", sample_rate);
+                println!("\tNumber of channels: {}", channels);
 
                 libstellars.read().unwrap().use_audio(sample_rate as usize);
                 let stellars = libstellars.clone();
                 let stream = device.build_output_stream(
                     &config.config(),
-                    move |data: &mut [u8], _: &cpal::OutputCallbackInfo| {
-                        audio_callback(data, stellars.clone());
+                    move |data: &mut [i16], _: &cpal::OutputCallbackInfo| {
+                        audio_callback(data, stellars.clone(), channels);
                     },
                     audio_error,
                     None).expect("Output stream cannot be created.");
@@ -53,17 +56,20 @@ impl StellarsAudio {
     }
 }
 
-fn audio_callback<T>(data: &mut [T], stellars: Arc<RwLock<Stellar>>)
+fn audio_callback<T>(data: &mut [T], stellars: Arc<RwLock<Stellar>>, nb_channels: ChannelCount)
 where T: Sample + FromSample<i16>
 {
-    let ch0_samples = stellars.read().unwrap().get_channel_0_samples(data.len());
-    let ch1_samples = stellars.read().unwrap().get_channel_1_samples(data.len());
+    let num_frames = data.len() / nb_channels as usize;
+    let ch0_samples = stellars.read().unwrap().get_channel_0_samples(num_frames);
+    let ch1_samples = stellars.read().unwrap().get_channel_1_samples(num_frames);
 
-    for (sample_index, frame) in data.chunks_mut(1).enumerate() {
+    for (frame_index, frame) in data.chunks_mut(nb_channels as usize).enumerate() {
+        let ch0_i16 = (ch0_samples[frame_index] as i16 - 128) * 256;
+        let ch1_i16 = (ch1_samples[frame_index] as i16 - 128) * 256;
+        let mixed = ((ch0_i16 as i32 + ch1_i16 as i32) / 2) as i16;
+
         for sample in frame.iter_mut() {
-            let ch0_sample: i16 = ((ch0_samples[sample_index] as u32 * 32767) / 127) as i16;
-            let ch1_sample: i16 = ((ch1_samples[sample_index] as u32 * 32767) / 127) as i16;
-            *sample = T::from_sample((((ch0_sample | ch1_sample) as f32) * 0.05) as i16);
+            *sample = T::from_sample((mixed as f32 * 0.1) as i16);
         }
     }
 }

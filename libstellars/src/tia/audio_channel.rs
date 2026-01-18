@@ -1,4 +1,4 @@
-const NTSC_TIA_AUDIO_CLOCK: u16 = 31399;
+const NTSC_TIA_AUDIO_CLOCK: f64 = 31399.5;
 
 pub struct AudioChannel {
     audf: u8,
@@ -48,12 +48,10 @@ impl AudioChannel {
     }
 
     pub fn next_sample(&mut self) -> u8 {
-        let frequency: f64 = NTSC_TIA_AUDIO_CLOCK as f64 / ((self.audf & 0x1F) + 1) as f64;
+        let frequency: f64 = NTSC_TIA_AUDIO_CLOCK / ((self.audf & 0x1F) + 1) as f64;
         let volume = 128 + (((self.audv & 0xF) as u16 * 127) / 15) as u8;
         let mut incr: f64 = 0.0;
         let mut sample = 0x80;
-
-        self.update();
 
         match self.audc & 0xF {
             0x0 | 0xB => {
@@ -65,7 +63,7 @@ impl AudioChannel {
                 sample = if self.poly_4 & 0x1 == 0 {0x80} else {volume};
             }
             0x2 => {
-                incr = (frequency / 30.0) / self.sample_rate as f64;
+                incr = (frequency / 15.0) / self.sample_rate as f64;
                 sample = if self.poly_4 & 0x1 == 0 {0x80} else {volume};
             }
             0x3 => {
@@ -105,6 +103,8 @@ impl AudioChannel {
         self.prev_index = self.index;
         self.index += incr;
         if self.index > 1.0 { self.index -= 1.0 };
+
+        self.update();
 
         sample
     }

@@ -36,14 +36,14 @@ impl StellarsRender {
             render_surface: surface,
             picture_buffer: Arc::new(RwLock::new([Color { r: 0x00, g: 0x00, b: 0x00 }; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize])),
             scale_factor,
-            target_framerate: 60.0,
+            target_framerate: 50.0,
 
             libstellars
         }
     }
 
     pub fn run(&mut self) {
-        self.libstellars.read().unwrap().load_rom(PathBuf::from("./stellars-gui/resources/F8/space_shuttle.bin"));
+        self.libstellars.read().unwrap().load_rom(PathBuf::from("./stellars-gui/resources/TIM1T.bin"));
 
         let stellars = self.libstellars.clone();
         let picture_buffer = self.picture_buffer.clone();
