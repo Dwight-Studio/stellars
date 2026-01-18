@@ -43,6 +43,7 @@ impl Memory {
     }
 
     #[cfg(not(feature = "test-utils"))]
+    //fixme: handle cartridge banking method better
     pub fn load_rom(&mut self, path: PathBuf) {
         match fs::read(path.clone()) {
             Ok(mut data) => {
