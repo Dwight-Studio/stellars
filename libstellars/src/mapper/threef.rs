@@ -23,7 +23,7 @@ impl Mapper for ThreeF {
     fn write_ram(&mut self, _rom_data: &mut [u8], _address: usize, _value: u8) {}
 
     fn check_switch(&mut self, address: u16, value: Option<u8>) {
-        if let Some(acc) = value && address <= 0x3F {
+        if let Some(acc) = value && address == 0x3F {
             self.selected_bank = acc & 0x03;
         }
     }
