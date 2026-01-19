@@ -31,21 +31,27 @@ impl Object {
         self.can_draw = true;
 
         if self.count >= SCREEN_WIDTH as u8 { self.counter_reset(true); }
+    }
 
+    pub fn update_movement(&mut self) {
         if self.should_move {
             self.curr_move += 1;
-            if self.curr_move == 16 * 4 { self.curr_move = 0; }
             if self.curr_move.is_multiple_of(4) {
                 self.count += 1;
                 if self.count >= SCREEN_WIDTH as u8 { self.counter_reset(true); }
             }
-            if self.curr_move == self.move_target { self.should_move = false; self.curr_move = 0 }
+            if self.curr_move > 16 * 4 { self.curr_move = 0; }
+            if self.curr_move == self.move_target { self.should_move = false; }
         }
     }
 
     pub fn move_to(&mut self, target: u8) {
-        self.should_move = true;
         self.move_target = target * 4;
+    }
+
+    pub fn perform_move(&mut self) {
+        self.should_move = true;
+        self.curr_move = 0;
     }
 
     pub fn counter_reset(&mut self, can_draw: bool) {

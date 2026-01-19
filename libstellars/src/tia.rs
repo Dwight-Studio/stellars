@@ -225,23 +225,18 @@ impl Tia {
                 self.ball.set_vdel_old(self.ball.get_vdel_new().value);
             }
             WORegs::Enabl => { self.ball.set_vdel_new(value); }
+            WORegs::Hmp0 => { self.player0.move_to((value >> 4) ^ 0x8) }
+            WORegs::Hmp1 => { self.player1.move_to((value >> 4) ^ 0x8) }
+            WORegs::Hmm0 => { self.missile0.move_to((value >> 4) ^ 0x8) }
+            WORegs::Hmm1 => { self.missile1.move_to((value >> 4) ^ 0x8) }
+            WORegs::Hmbl => { self.ball.move_to((value >> 4) ^ 0x8) }
             WORegs::Hmove => {
                 self.wo_regs[address as usize] = 8;
-
-                let fbc_val = (self.get_wo_reg(WORegs::Hmm0).value >> 4) ^ 0x8;
-                self.missile0.move_to(fbc_val);
-
-                let fbc_val = (self.get_wo_reg(WORegs::Hmm1).value >> 4) ^ 0x8;
-                self.missile1.move_to(fbc_val);
-
-                let fbc_val = (self.get_wo_reg(WORegs::Hmbl).value >> 4) ^ 0x8;
-                self.ball.move_to(fbc_val);
-
-                let fbc_val = (self.get_wo_reg(WORegs::Hmp0).value >> 4) ^ 0x8;
-                self.player0.move_to(fbc_val);
-
-                let fbc_val = (self.get_wo_reg(WORegs::Hmp1).value >> 4) ^ 0x8;
-                self.player1.move_to(fbc_val);
+                self.player0.perform_move();
+                self.player1.perform_move();
+                self.missile0.perform_move();
+                self.missile1.perform_move();
+                self.ball.perform_move();
             }
             WORegs::Hmclr => {
                 self.wo_regs[WORegs::Hmm0 as usize] = 0x00;
@@ -322,6 +317,12 @@ impl Tia {
                     self.player0.update();
                     self.player1.update();
                 }
+
+                self.missile0.update_movement();
+                self.missile1.update_movement();
+                self.ball.update_movement();
+                self.player0.update_movement();
+                self.player1.update_movement();
 
                 self.pic_x += 1;
                 self.tia_debug.horizontal_counter = self.pic_x + 1;
