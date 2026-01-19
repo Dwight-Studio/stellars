@@ -12,8 +12,8 @@ use crate::debug::CpuDebug;
 #[cfg(not(feature = "test-utils"))]
 pub struct Cpu {
     pub(crate) bus: Option<Weak<RwLock<Stellar>>>,
-    
-    registers: Registers,
+
+    pub(crate) registers: Registers,
     cpu_debug: CpuDebug
 }
 

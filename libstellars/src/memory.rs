@@ -10,6 +10,7 @@ use crate::mapper::f4::F4;
 use crate::mapper::Mapper;
 use crate::mapper::full::Full;
 use crate::mapper::half::Half;
+use crate::mapper::threef::ThreeF;
 use crate::Stellar;
 
 #[cfg(not(feature = "test-utils"))]
@@ -76,7 +77,24 @@ impl Memory {
                     self.mapper = Box::new(Full);
                     data
                 } else if size == 8192 {
-                    self.mapper = Box::new(F8::new());
+                    println!("Choose cartridge banking :");
+                    println!("1 - F8");
+                    println!("2 - 3F");
+                    let mut input: String = String::new();
+                    loop {
+                        print!("> ");
+                        io::stdout().flush().unwrap();
+                        io::stdin().read_line(&mut input).unwrap();
+                        if let Ok(value) = input.trim().parse::<u32>() {
+                            if value == 1 {
+                                self.mapper = Box::new(F8::new());
+                                break
+                            } else if value == 2 {
+                                self.mapper = Box::new(ThreeF::new());
+                                break
+                            }
+                        }
+                    }
                     data
                 } else if size == 16384 {
                     self.mapper = Box::new(F6::new());
@@ -108,8 +126,8 @@ impl Memory {
         self.mapper.write_ram(&mut self.game_rom, address, data);
     }
 
-    pub fn check_bank_switching(&mut self, address: u16) {
-        self.mapper.check_switch(address);
+    pub fn check_bank_switching(&mut self, address: u16, value: Option<u8>) {
+        self.mapper.check_switch(address, value);
     }
 }
 

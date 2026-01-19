@@ -1,7 +1,7 @@
 use crate::mapper::Mapper;
 
 pub struct F8 {
-    selected_bank: u16,
+    selected_bank: u8,
 }
 
 impl F8 {
@@ -18,7 +18,7 @@ impl Mapper for F8 {
 
     fn write_ram(&mut self, _rom_data: &mut [u8], _address: usize, _value: u8) {}
 
-    fn check_switch(&mut self, address: u16) {
+    fn check_switch(&mut self, address: u16, _value: Option<u8>) {
         if address == 0x1FF8 {
             self.selected_bank = 0;
         } else if address == 0x1FF9 {

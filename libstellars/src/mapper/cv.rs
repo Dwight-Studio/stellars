@@ -13,5 +13,5 @@ impl Mapper for CV {
         }
     }
 
-    fn check_switch(&mut self, _address: u16) {}
+    fn check_switch(&mut self, _address: u16, _value: Option<u8>) {}
 }

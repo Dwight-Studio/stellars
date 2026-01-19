@@ -119,7 +119,7 @@ impl Stellar {
     pub(crate) fn read_byte(&self, mut address: u16) -> u8 {
         address &= 0x1FFF; // CPU 8K Mirrors
 
-        self.memory.write().unwrap().check_bank_switching(address);
+        self.memory.write().unwrap().check_bank_switching(address, None);
 
         let data: u8;
 
@@ -155,7 +155,7 @@ impl Stellar {
     pub(crate) fn write_byte(&self, mut address: u16, value: u8) {
         address &= 0x1FFF; // CPU 8K Mirrors
 
-        self.memory.write().unwrap().check_bank_switching(address);
+        self.memory.write().unwrap().check_bank_switching(address, Some(value));
 
         if (address & 0b1_0000_0000_0000) == 0 && (address & 0b1000_0000) == 0 { // TIA Mirrors
             address &= 0x003F;
