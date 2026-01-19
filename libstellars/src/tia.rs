@@ -225,18 +225,25 @@ impl Tia {
                 self.ball.set_vdel_old(self.ball.get_vdel_new().value);
             }
             WORegs::Enabl => { self.ball.set_vdel_new(value); }
-            WORegs::Hmp0 => { self.player0.move_to((value >> 4) ^ 0x8) }
-            WORegs::Hmp1 => { self.player1.move_to((value >> 4) ^ 0x8) }
-            WORegs::Hmm0 => { self.missile0.move_to((value >> 4) ^ 0x8) }
-            WORegs::Hmm1 => { self.missile1.move_to((value >> 4) ^ 0x8) }
-            WORegs::Hmbl => { self.ball.move_to((value >> 4) ^ 0x8) }
             WORegs::Hmove => {
                 self.wo_regs[address as usize] = 8;
-                self.player0.perform_move();
-                self.player1.perform_move();
-                self.missile0.perform_move();
-                self.missile1.perform_move();
-                self.ball.perform_move();
+
+                // TODO: Counter shoudl be incremented based on the clock count instead doing all the
+                //       increments all at once
+                let fbc_val = (self.get_wo_reg(WORegs::Hmm0).value >> 4) ^ 0x8;
+                self.missile0.counter_increment(fbc_val);
+
+                let fbc_val = (self.get_wo_reg(WORegs::Hmm1).value >> 4) ^ 0x8;
+                self.missile1.counter_increment(fbc_val);
+
+                let fbc_val = (self.get_wo_reg(WORegs::Hmbl).value >> 4) ^ 0x8;
+                self.ball.counter_increment(fbc_val);
+
+                let fbc_val = (self.get_wo_reg(WORegs::Hmp0).value >> 4) ^ 0x8;
+                self.player0.counter_increment(fbc_val);
+
+                let fbc_val = (self.get_wo_reg(WORegs::Hmp1).value >> 4) ^ 0x8;
+                self.player1.counter_increment(fbc_val);
             }
             WORegs::Hmclr => {
                 self.wo_regs[WORegs::Hmm0 as usize] = 0x00;
@@ -288,7 +295,7 @@ impl Tia {
                     if self.pic_y >= 37 {
                         self.check_player(0);
                         self.check_player(1);
-                        self.check_missile(1);
+                        self.check_missile(0);
                         self.check_missile(1);
                         self.check_ball();
                         self.check_playfield();
@@ -317,12 +324,6 @@ impl Tia {
                     self.player0.update();
                     self.player1.update();
                 }
-
-                self.missile0.update_movement();
-                self.missile1.update_movement();
-                self.ball.update_movement();
-                self.player0.update_movement();
-                self.player1.update_movement();
 
                 self.pic_x += 1;
                 self.tia_debug.horizontal_counter = self.pic_x + 1;
