@@ -40,7 +40,7 @@ impl Pia {
             t1024t: 0,
             selected_timer: Timer::Tim1t,
             old_timer: Timer::Tim1t,
-            internal_clock: 0
+            internal_clock: 1
         }
     }
 

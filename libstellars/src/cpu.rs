@@ -13,7 +13,7 @@ use crate::debug::CpuDebug;
 pub struct Cpu {
     pub(crate) bus: Option<Weak<RwLock<Stellar>>>,
 
-    pub(crate) registers: Registers,
+    registers: Registers,
     cpu_debug: CpuDebug
 }
 
