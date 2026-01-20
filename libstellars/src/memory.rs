@@ -7,6 +7,7 @@ use crate::mapper::cv::CV;
 use crate::mapper::f8::F8;
 use crate::mapper::f6::F6;
 use crate::mapper::f4::F4;
+use crate::mapper::f4sc::F4SC;
 use crate::mapper::Mapper;
 use crate::mapper::full::Full;
 use crate::mapper::half::Half;
@@ -102,7 +103,24 @@ impl Memory {
                     self.mapper = Box::new(F6::new());
                     data
                 } else if size == 32768 {
-                    self.mapper = Box::new(F4::new());
+                    println!("Choose cartridge banking :");
+                    println!("1 - F4");
+                    println!("2 - F4SC");
+                    let mut input: String = String::new();
+                    loop {
+                        print!("> ");
+                        io::stdout().flush().unwrap();
+                        io::stdin().read_line(&mut input).unwrap();
+                        if let Ok(value) = input.trim().parse::<u32>() {
+                            if value == 1 {
+                                self.mapper = Box::new(F4::new());
+                                break
+                            } else if value == 2 {
+                                self.mapper = Box::new(F4SC::new());
+                                break
+                            }
+                        }
+                    }
                     data
                 } else if size == 491520 {
                     self.mapper = Box::new(ThreeE::new());

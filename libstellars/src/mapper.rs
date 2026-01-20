@@ -7,6 +7,7 @@ pub mod f4;
 pub mod threef;
 pub mod threefplus;
 pub mod threee;
+pub mod f4sc;
 
 pub trait Mapper: Send + Sync {
     fn read_rom(&self, rom_data: &[u8], address: usize) -> u8;
