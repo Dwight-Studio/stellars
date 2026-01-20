@@ -105,8 +105,7 @@ impl Memory {
                     self.mapper = Box::new(F4::new());
                     data
                 } else if size == 491520 {
-                    self.mapper = Box::new(ThreeE::new(491520));
-                    data.extend_from_within(0..(524288 - 491520));
+                    self.mapper = Box::new(ThreeE::new());
                     data
                 } else if size == 524288 {
                     self.mapper = Box::new(ThreeFPlus::new());
