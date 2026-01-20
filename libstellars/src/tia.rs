@@ -208,7 +208,7 @@ impl Tia {
             WORegs::Resp1 => { self.player1.counter_reset(false); }
             WORegs::Resm0 => { self.missile0.counter_reset(false); }
             WORegs::Resm1 => { self.missile1.counter_reset(false); }
-            WORegs::Resbl => { self.ball.counter_reset(false); }
+            WORegs::Resbl => { self.ball.counter_reset(true); }
             WORegs::Audc0 => { if let Some(channel) = &mut self.channel_0 { channel.set_audc(value) } }
             WORegs::Audc1 => { if let Some(channel) = &mut self.channel_1 { channel.set_audc(value) } }
             WORegs::Audf0 => { if let Some(channel) = &mut self.channel_0 { channel.set_audf(value) } }
@@ -477,7 +477,7 @@ impl Tia {
     }
 
     fn check_ball(&mut self) {
-        let ball_enable = if self.get_wo_reg(WORegs::Vdelbl).bit(0) { self.ball.get_vdel_old().bit(0) } else { self.ball.get_vdel_new().bit(0) };
+        let ball_enable = if self.get_wo_reg(WORegs::Vdelbl).bit(0) { self.ball.get_vdel_old().bit(1) } else { self.ball.get_vdel_new().bit(1) };
 
         if ball_enable && self.ball.count() < PMB_SIZE[((self.get_wo_reg(WORegs::Ctrlpf).value >> 4) & 0x3) as usize] {
             self.collision.ball = Some(WORegs::Colupf);
