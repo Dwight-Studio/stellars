@@ -71,11 +71,11 @@ impl AudioChannel {
                 sample = if self.poly_4_3 & 0x1 == 0 {0x80} else {volume};
             }
             0x4 | 0x5 => {
-                incr = (frequency / 2.0) / self.sample_rate as f64;
+                incr = frequency / self.sample_rate as f64;
                 sample = if self.square & 0x1 == 0 {0x80} else {volume};
             }
             0x6 | 0xA => {
-                incr = (frequency / 31.0) / self.sample_rate as f64;
+                incr = (frequency / 15.5) / self.sample_rate as f64;
                 sample = if self.square & 0x1 == 0 {0x80} else {volume};
             }
             0x7 | 0x9 => {
@@ -87,14 +87,15 @@ impl AudioChannel {
                 sample = if self.poly_9 & 0x1 == 0 {0x80} else {volume};
             }
             0xC | 0xD => {
-                incr = (frequency / 6.0) / self.sample_rate as f64;
+                incr = (frequency / 3.0) / self.sample_rate as f64;
                 sample = if self.square & 0x1 == 0 {0x80} else {volume};
             }
             0xE => {
-                incr = (frequency / 93.0) / self.sample_rate as f64;
+                incr = (frequency / 46.5) / self.sample_rate as f64;
                 sample = if self.square & 0x1 == 0 {0x80} else {volume};
             }
             0xF => {
+                // FIXME: Does not sound correct
                 incr = (frequency / 6.0) / self.sample_rate as f64;
                 sample = if self.poly_5 & 0x1 == 0 {0x80} else {volume};
             }

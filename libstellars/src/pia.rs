@@ -81,7 +81,7 @@ impl Pia {
             x if x == Functions::Tim8t as u16 => self.tim8t,
             x if x == Functions::Tim64t as u16 => self.tim64t,
             x if x == Functions::T1024t as u16 => self.t1024t,
-            _ => unreachable!()
+            _ => {0} // FIXME: Should not go here but it does in this rom: https://www.pouet.net/prod.php?which=57530
         }
 
     }
