@@ -10,7 +10,9 @@ use crate::mapper::f4::F4;
 use crate::mapper::Mapper;
 use crate::mapper::full::Full;
 use crate::mapper::half::Half;
+use crate::mapper::threee::ThreeE;
 use crate::mapper::threef::ThreeF;
+use crate::mapper::threefplus::ThreeFPlus;
 use crate::Stellar;
 
 #[cfg(not(feature = "test-utils"))]
@@ -102,8 +104,15 @@ impl Memory {
                 } else if size == 32768 {
                     self.mapper = Box::new(F4::new());
                     data
+                } else if size == 491520 {
+                    self.mapper = Box::new(ThreeE::new(491520));
+                    data.extend_from_within(0..(524288 - 491520));
+                    data
+                } else if size == 524288 {
+                    self.mapper = Box::new(ThreeFPlus::new());
+                    data
                 } else {
-                    panic!("Unknown rom size");
+                    panic!("Unknown rom size, got {size}");
                 };
 
                 self.game_rom = rom_data;

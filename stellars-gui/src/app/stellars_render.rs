@@ -43,7 +43,7 @@ impl StellarsRender {
     }
 
     pub fn run(&mut self) {
-        self.libstellars.read().unwrap().load_rom(PathBuf::from("./stellars-gui/resources/2k/tennis.a26"));
+        self.libstellars.read().unwrap().load_rom(PathBuf::from("./stellars-gui/resources/3E/BadApple1_0.bin"));
 
         let stellars = self.libstellars.clone();
         let picture_buffer = self.picture_buffer.clone();
