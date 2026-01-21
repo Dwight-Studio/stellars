@@ -14,7 +14,7 @@ use crate::mapper::half::Half;
 use crate::mapper::threee::ThreeE;
 use crate::mapper::threef::ThreeF;
 use crate::mapper::threefplus::ThreeFPlus;
-use crate::Stellar;
+use crate::{bus_read, lock_write, Stellar};
 
 #[cfg(not(feature = "test-utils"))]
 pub struct Memory {
@@ -134,11 +134,9 @@ impl Memory {
 
                 self.game_rom = rom_data;
 
-                if let Some(bus_arc) = self.bus.as_ref().and_then(|bus| bus.upgrade()) {
-                    let stellar = bus_arc.read().unwrap();
-
-                    stellar.cpu.write().unwrap().init_pc(self.read_game_rom(0x0FFC) as u16 | ((self.read_game_rom(0x0FFD) as u16) << 8));
-                }
+                bus_read(&self.bus, |bus| { 
+                    lock_write(&bus.cpu).init_pc(self.read_game_rom(0x0FFC) as u16 | ((self.read_game_rom(0x0FFD) as u16) << 8)) 
+                });
             }
             Err(err) => {eprintln!("Cannot open ROM {}: {err}", path.display())}
         }

@@ -2,7 +2,7 @@ mod opcodes;
 
 use crate::cpu::opcodes::OPCODES;
 use crate::registers::Registers;
-use crate::Stellar;
+use crate::{bus_read, Stellar};
 use std::sync::{RwLock, Weak};
 
 #[cfg(feature = "test-utils")]
@@ -78,10 +78,10 @@ impl Cpu {
 
     #[cfg(not(feature = "test-utils"))]
     fn push_stack(&mut self, value: u8) {
-        self.bus.as_ref().unwrap().upgrade().unwrap().read().unwrap().tick();
+        bus_read(&self.bus, |bus| bus.tick());
 
         let address = 0x100 + self.registers.sp as u16;
-        self.bus.as_ref().unwrap().upgrade().unwrap().read().unwrap().write_byte(address, value);
+        bus_read(&self.bus, |bus| bus.write_byte(address, value));
         self.registers.sp = self.registers.sp.wrapping_sub(1);
     }
 
@@ -98,7 +98,7 @@ impl Cpu {
 
     #[cfg(not(feature = "test-utils"))]
     fn pull_stack(&mut self) -> u8 {
-        self.bus.as_ref().unwrap().upgrade().unwrap().read().unwrap().tick();
+        bus_read(&self.bus, |bus| bus.tick());
 
         self.registers.sp = self.registers.sp.wrapping_add(1);
         let address = 0x100 + self.registers.sp as u16;
@@ -121,9 +121,9 @@ impl Cpu {
 
     #[cfg(not(feature = "test-utils"))]
     fn fetch_byte(&mut self) -> u8 {
-        self.bus.as_ref().unwrap().upgrade().unwrap().read().unwrap().tick();
+        bus_read(&self.bus, |bus| bus.tick());
 
-        let data = self.bus.as_ref().unwrap().upgrade().unwrap().read().unwrap().read_byte(self.registers.pc);
+        let data = bus_read(&self.bus, |bus| bus.read_byte(self.registers.pc)).unwrap_or(0);
         self.registers.pc = self.registers.pc.wrapping_add(1);
 
         data
@@ -143,9 +143,8 @@ impl Cpu {
 
     #[cfg(not(feature = "test-utils"))]
     fn read_byte(&mut self, address: u16) -> u8 {
-        self.bus.as_ref().unwrap().upgrade().unwrap().read().unwrap().tick();
-
-        self.bus.as_ref().unwrap().upgrade().unwrap().read().unwrap().read_byte(address)
+        bus_read(&self.bus, |bus| bus.tick());
+        bus_read(&self.bus, |bus| bus.read_byte(address)).unwrap_or(0)
     }
 
     #[cfg(feature = "test-utils")]
@@ -161,11 +160,8 @@ impl Cpu {
 
     #[cfg(not(feature = "test-utils"))]
     fn write_byte(&mut self, address: u16, value: u8) {
-        self.bus.as_ref().unwrap().upgrade().unwrap().read().unwrap().tick();
-
-        if let Some(bus) = self.bus.as_ref() && let Some(bus_upgrade) = bus.upgrade() && let Ok(bus_w) = bus_upgrade.read() {
-            bus_w.write_byte(address, value);
-        }
+        bus_read(&self.bus, |bus| bus.tick());
+        bus_read(&self.bus, |bus| bus.write_byte(address, value));
     }
 
     #[cfg(feature = "test-utils")]

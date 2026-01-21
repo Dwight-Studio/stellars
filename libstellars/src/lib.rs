@@ -1,5 +1,5 @@
 use std::path::PathBuf;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, Weak};
 use std::sync::atomic::{AtomicBool, Ordering};
 use crate::controller::{Controller, Input};
 use crate::memory::Memory;
@@ -52,9 +52,14 @@ impl Stellar {
             frame_ready: AtomicBool::new(false),
         }));
 
-        bus.read().unwrap().memory.write().unwrap().bus = Some(Arc::downgrade(&bus));
-        bus.read().unwrap().tia.write().unwrap().bus = Some(Arc::downgrade(&bus));
-        bus.read().unwrap().cpu.write().unwrap().bus = Some(Arc::downgrade(&bus));
+        let bus_weak = Arc::downgrade(&bus);
+        let bus_read = lock_read(&bus);
+
+        lock_write(&bus_read.memory).bus = Some(bus_weak.clone());
+        lock_write(&bus_read.tia).bus = Some(bus_weak.clone());
+        lock_write(&bus_read.cpu).bus = Some(bus_weak.clone());
+
+        drop(bus_read);
 
         bus
     }
@@ -68,84 +73,83 @@ impl Stellar {
     pub fn get_picture_buffer(&self) -> Option<[Color; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize]> {
         if self.frame_ready.load(Ordering::Relaxed) {
             self.frame_ready.store(false, Ordering::Relaxed);
-            Some(self.tia.read().unwrap().pic_buffer)
+            Some(lock_read(&self.tia).pic_buffer)
         } else {
             None
         }
     }
     
     pub fn unsafe_get_picture_buffer(&self) -> [Color; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize] {
-        self.tia.read().unwrap().pic_buffer
+        lock_read(&self.tia).pic_buffer
     }
 
     pub fn get_channel_0_samples(&self, number: usize) -> Vec<u8> {
-        self.tia.write().unwrap().get_channel_0_samples(number)
+        lock_write(&self.tia).get_channel_0_samples(number)
     }
 
     pub fn get_channel_1_samples(&self, number: usize) -> Vec<u8> {
-        self.tia.write().unwrap().get_channel_1_samples(number)
+        lock_write(&self.tia).get_channel_1_samples(number)
     }
 
     #[cfg(not(feature = "test-utils"))]
     pub fn load_rom(&self, path: PathBuf) {
-        self.memory.write().unwrap().load_rom(path);
+        lock_write(&self.memory).load_rom(path);
     }
 
     pub fn update_inputs(&self, input: Input, pressed: bool) {
-        self.controller.write().unwrap().update_inputs(input, pressed)
+        lock_write(&self.controller).update_inputs(input, pressed);
     }
 
     pub fn get_debug_info(&self) -> StellarDebugInfo {
         StellarDebugInfo {
-            cpu: self.cpu.read().unwrap().get_debug_info(),
-            memory: self.memory.read().unwrap().get_debug_info(),
-            tia: self.tia.read().unwrap().get_debug_info()
+            cpu: lock_read(&self.cpu).get_debug_info(),
+            memory: lock_read(&self.memory).get_debug_info(),
+            tia: lock_read(&self.tia).get_debug_info()
         }
     }
 
     pub fn read(&self, address: u16) -> u8 {
         if address <= 0x2C {
-            self.tia.read().unwrap().unsafe_read(address)
+            lock_read(&self.tia).unsafe_read(address)
         } else {
             self.read_byte(address)
         }
     }
 
     pub fn use_audio(&self, sample_rate: usize) {
-        self.tia.write().unwrap().use_audio(sample_rate);
+        lock_write(&self.tia).use_audio(sample_rate);
     }
 
     #[cfg(not(feature = "test-utils"))]
     pub(crate) fn read_byte(&self, mut address: u16) -> u8 {
         address &= 0x1FFF; // CPU 8K Mirrors
 
-        self.memory.write().unwrap().check_bank_switching(address, None);
+        lock_write(&self.memory).check_bank_switching(address, None);
 
         let data: u8;
 
         if (address & 0b1_0000_0000_0000) == 0 && (address & 0b1000_0000) == 0 { // TIA Mirrors
             address &= 0x000F;
             if address < 0x8 {
-                data = self.tia.read().unwrap().read(address);
+                data = lock_read(&self.tia).read(address);
             } else {
-                data = self.controller.read().unwrap().read_inputs(address);
+                data = lock_read(&self.controller).read_inputs(address);
             }
         } else if (address & 0b1_0000_0000_0000) == 0 && (address & 0b10_0000_0000) == 0 && (address & 0b1000_0000) != 0 { // PIA RAM Mirrors
-            data = self.memory.read().unwrap().ram[(address & 0x7F) as usize];
+            data = lock_read(&self.memory).ram[(address & 0x7F) as usize];
         } else if (address & 0b1_0000_0000_0000) == 0 && (address & 0b10_0000_0000) != 0 && (address & 0b1000_0000) != 0 { // PIA I/O Mirrors
             address &= 0x17;
             if address <= 0x03 {
-                data = self.controller.read().unwrap().read_inputs(address);
+                data = lock_read(&self.controller).read_inputs(address);
             } else if address & 0x10 == 0 {
-                data = self.pia.write().unwrap().read(address & 0x01);
+                data = lock_write(&self.pia).read(address & 0x01);
             } else {
-                data = self.pia.write().unwrap().read(address);
+                data = lock_write(&self.pia).read(address);
             }
         } else if address >= 0x1000 {
-            data = self.memory.read().unwrap().read_game_rom((address - 0x1000) as usize);
+            data = lock_read(&self.memory).read_game_rom((address - 0x1000) as usize);
         } else {
             data = 0xFF;
-            // TODO: Reading at unknown address
         }
 
         data
@@ -155,29 +159,29 @@ impl Stellar {
     pub(crate) fn write_byte(&self, mut address: u16, value: u8) {
         address &= 0x1FFF; // CPU 8K Mirrors
 
-        self.memory.write().unwrap().check_bank_switching(address, Some(value));
+        lock_write(&self.memory).check_bank_switching(address, Some(value));
 
         if (address & 0b1_0000_0000_0000) == 0 && (address & 0b1000_0000) == 0 { // TIA Mirrors
             address &= 0x003F;
 
             if address <= 0x2C {
-                self.tia.write().unwrap().set_wo_reg(address as u8, value);
+                lock_write(&self.tia).set_wo_reg(address as u8, value);
             }
         } else if (address & 0b1_0000_0000_0000) == 0 && (address & 0b10_0000_0000) == 0 && (address & 0b1000_0000) != 0 { // PIA RAM Mirrors
-            self.memory.write().unwrap().ram[(address & 0x7F) as usize] = value;
+            lock_write(&self.memory).ram[(address & 0x7F) as usize] = value;
         } else if (address & 0b1_0000_0000_0000) == 0 && (address & 0b10_0000_0000) != 0 && (address & 0b1000_0000) != 0 { // PIA I/O Mirrors
             address &= 0x17;
             if address >= 0x14 {
-                self.pia.write().unwrap().write(address, value);
+                lock_write(&self.pia).write(address, value);
             }
         } else if address >= 0x1000 {
-            self.memory.write().unwrap().write_game_ram((address - 0x1000) as usize, value);
+            lock_write(&self.memory).write_game_ram((address - 0x1000) as usize, value);
         }
     }
 
     pub(crate) fn tick(&self) {
-        self.tia.write().unwrap().tick();
-        self.pia.write().unwrap().tick();
+        lock_write(&self.tia).tick();
+        lock_write(&self.pia).tick();
     }
 
     #[cfg(feature = "test-utils")]
@@ -264,4 +268,20 @@ impl Stellar {
     pub fn run_opcode(&self) {
         self.cpu.write().unwrap().execute();
     }
+}
+
+pub fn lock_read<T>(l: &'_ RwLock<T>) -> RwLockReadGuard<'_, T> {
+    l.read().unwrap_or_else(|e| { eprintln!("Warning: Read lock poisoned!"); e.into_inner() })
+}
+
+pub fn lock_write<T>(l: &'_ RwLock<T>) -> RwLockWriteGuard<'_, T> {
+    l.write().unwrap_or_else(|e| { eprintln!("Warning: Write lock poisoned!"); e.into_inner() })
+}
+
+pub(crate) fn bus_read<R>(bus: &Option<Weak<RwLock<Stellar>>>, f: impl FnOnce(&Stellar) -> R) -> Option<R> {
+    // FIXME: The is cool but can hide errors
+    let bus = bus.as_ref()?.upgrade()?;
+    let guard = bus.read().ok()?;
+
+    Some(f(&guard))
 }

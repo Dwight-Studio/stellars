@@ -4,7 +4,7 @@ mod object;
 mod audio_channel;
 
 use crate::tia::colors::NTSC_COLORS;
-use crate::{Color, Stellar, SCREEN_HEIGHT, SCREEN_WIDTH};
+use crate::{bus_read, Color, Stellar, SCREEN_HEIGHT, SCREEN_WIDTH};
 use std::sync::{RwLock, Weak};
 use std::sync::atomic::Ordering;
 use crate::debug::{TiaDebug};
@@ -335,7 +335,7 @@ impl Tia {
 
         if self.clock_count >= 52896 {
             self.clock_count -= 52896;
-            self.bus.as_ref().unwrap().upgrade().unwrap().read().unwrap().frame_ready.store(true, Ordering::Relaxed);
+            bus_read(&self.bus, |bus| { bus.frame_ready.store(true, Ordering::Relaxed) });
         }
     }
 
