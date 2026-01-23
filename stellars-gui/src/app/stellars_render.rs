@@ -9,7 +9,7 @@ use winit::event::ElementState;
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::window::Window;
 use libstellars::controller::{Console, Input, InputDevice, Joystick};
-use libstellars::controller::Console::{P0DifficultyA, P0DifficultyB, P1DifficultyA, P1DifficultyB, Reset, Select};
+use libstellars::controller::Console::{P0DifficultyA, P0DifficultyB, P1DifficultyA, P1DifficultyB, Reset, Select, BW};
 use libstellars::controller::Keypad::{R0C0, R0C1, R0C2, R1C0, R1C1, R1C2, R2C0, R2C1, R2C2, R3C0, R3C1, R3C2};
 use crate::app::debugger_state::DebuggerState;
 
@@ -36,14 +36,14 @@ impl StellarsRender {
             render_surface: surface,
             picture_buffer: Arc::new(RwLock::new([Color { r: 0x00, g: 0x00, b: 0x00 }; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize])),
             scale_factor,
-            target_framerate: 50.0,
+            target_framerate: 60.0,
 
             libstellars
         }
     }
 
     pub fn run(&mut self) {
-        self.libstellars.read().unwrap().load_rom(PathBuf::from("./stellars-gui/resources/3E/BadApple1_0.bin"));
+        self.libstellars.read().unwrap().load_rom(PathBuf::from("./stellars-gui/resources/2k/3-D Tic-Tac-Toe.bin"));
 
         let stellars = self.libstellars.clone();
         let picture_buffer = self.picture_buffer.clone();
@@ -125,7 +125,8 @@ impl StellarsRender {
         let mut input: Option<Input>;
 
         input = match keycode {
-            PhysicalKey::Code(KeyCode::F2) => Some(Input::Console(Console::Color)),
+            PhysicalKey::Code(KeyCode::F1) => Some(Input::Console(Console::Color)),
+            PhysicalKey::Code(KeyCode::F2) => Some(Input::Console(BW)),
             PhysicalKey::Code(KeyCode::F3) => Some(Input::Console(Select)),
             PhysicalKey::Code(KeyCode::F4) => Some(Input::Console(Reset)),
             PhysicalKey::Code(KeyCode::F5) => Some(Input::Console(P0DifficultyA)),

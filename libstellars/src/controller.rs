@@ -1,4 +1,4 @@
-use Console::{Color, P1DifficultyA, P1DifficultyB, Reset, Select};
+use Console::{Color, BW, P1DifficultyA, P1DifficultyB, Reset, Select};
 use crate::controller::Console::{P0DifficultyA, P0DifficultyB};
 
 #[repr(u16)]
@@ -33,6 +33,7 @@ pub enum Console {
     Reset,
     Select,
     Color,
+    BW,
     P0DifficultyA,
     P0DifficultyB,
     P1DifficultyA,
@@ -165,7 +166,7 @@ impl Controller {
                 let (mask, real_switch) = match switch {
                     Reset => (0b0000_0001, true),
                     Select => (0b0000_0010, true),
-                    Color => (0b0000_1000, true),
+                    Color | BW => (0b0000_1000, false),
                     P0DifficultyA | P0DifficultyB => (0b0100_0000, false),
                     P1DifficultyA | P1DifficultyB => (0b1000_0000, false),
                 };
@@ -176,9 +177,9 @@ impl Controller {
                     } else {
                         self.swchb |= mask;
                     }
-                } else if switch == P0DifficultyA || switch == P1DifficultyA {
+                } else if switch == Color || switch == P0DifficultyA || switch == P1DifficultyA {
                     self.swchb |= mask;
-                } else if switch == P0DifficultyB || switch == P1DifficultyB {
+                } else if switch == BW || switch == P0DifficultyB || switch == P1DifficultyB {
                     self.swchb &= !mask;
                 }
             }
