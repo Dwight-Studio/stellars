@@ -1,13 +1,9 @@
 use crate::app::stellars_render::StellarsRender;
 use libstellars::controller::InputDevice;
-use libstellars::{Stellar, SCREEN_HEIGHT, SCREEN_WIDTH};
+use libstellars::Stellar;
 use std::process::exit;
-use std::sync::{Arc, RwLock};
-use winit::application::ApplicationHandler;
-use winit::dpi::LogicalSize;
-use winit::event::WindowEvent;
-use winit::event_loop::ActiveEventLoop;
-use winit::window::{Window, WindowId};
+use eframe::egui::{Context, Event};
+use eframe::{egui, CreationContext, Frame};
 use crate::app::stellars_audio::StellarsAudio;
 
 mod stellars_render;
@@ -15,65 +11,64 @@ mod debugger_state;
 mod stellars_audio;
 
 pub struct App {
-    libstellars: Arc<RwLock<Stellar>>,
-    stellars_render: Option<StellarsRender>,
+    stellars_render: StellarsRender,
     stellars_audio: StellarsAudio,
     input_device: InputDevice
 }
 
 impl App {
-    pub fn new() -> Self {
+    pub fn new(cc: &CreationContext) -> Self {
         let libstellars = Stellar::new();
+        let mut stellars_render = StellarsRender::new(libstellars.clone(), cc.egui_ctx.clone());
+        stellars_render.run();
         Self {
-            libstellars: libstellars.clone(),
-            stellars_render: None,
+            stellars_render,
             stellars_audio: StellarsAudio::new(libstellars),
             input_device: InputDevice::Joystick
         }
     }
 }
 
-impl ApplicationHandler for App {
-    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        let stellars_render_attrs = Window::default_attributes()
-            .with_title("Stellars Render")
-            .with_inner_size(LogicalSize::new(
-                SCREEN_WIDTH as f64 * 4.0,
-                SCREEN_HEIGHT as f64 * 2.0
-            ));
-        let render_window = Arc::new(event_loop.create_window(stellars_render_attrs).unwrap());
-        let mut stellars_render = StellarsRender::new(render_window.clone(), self.libstellars.clone());
-        stellars_render.run();
+impl eframe::App for App {
+    fn update(&mut self, ctx: &Context, _: &mut Frame) {
+        // Input handling
+        ctx.input(|input_state| {
+            for event in &input_state.events {
+                if let Event::Key {key, pressed, .. } = event {
+                    self.stellars_render.update_inputs(*key, *pressed, self.input_device);
+                }
+            }
+        });
 
-        self.stellars_render = Some(stellars_render);
+        egui::CentralPanel::default().frame(egui::Frame {
+            fill: ctx.style().visuals.window_fill,
+            ..Default::default()
+        }).show(ctx, |ui| {
+            egui::MenuBar::new().ui(ui, |ui| {
+                ui.menu_button("File", |ui| {
+                    if ui.button("Open ROM").clicked() {}
+                    if ui.button("Quit").clicked() {}
+                });
+                ui.menu_button("Emulation", |ui| {
+                    if ui.button("Configuration").clicked() {}
+                    if ui.button("Inputs").clicked() {}
+                });
+                ui.menu_button("Help", |ui| {
+                    if ui.button("Website").clicked() {}
+                    if ui.button("Github repository").clicked() {}
+                    if ui.button("About").clicked() {}
+                });
+            });
+            ui.separator();
+            self.stellars_render.render(ui);
+        });
+
+        ctx.request_repaint();
     }
 
-    fn window_event(&mut self, event_loop: &ActiveEventLoop, _: WindowId, event: WindowEvent) {
-        let stellars_render = match self.stellars_render.as_mut() {
-            None => {return}
-            Some(render) => render
-        };
+    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        self.stellars_audio.stop();
 
-        match event {
-            WindowEvent::CloseRequested => {
-                self.stellars_audio.stop();
-                self.stellars_render = None;
-
-                event_loop.exit();
-                exit(0);
-            }
-            WindowEvent::KeyboardInput {event,..} => {
-                let keycode = event.physical_key;
-                let pressed = event.state;
-                stellars_render.update_inputs(keycode, pressed, self.input_device);
-            }
-            WindowEvent::RedrawRequested => {
-                stellars_render.render();
-            }
-            WindowEvent::Resized(size) => {
-                stellars_render.resize(size);
-            }
-            _ => {}
-        }
+        exit(0);
     }
 }

@@ -1,11 +1,13 @@
-use winit::event_loop::{EventLoop};
+use eframe::egui;
 use crate::app::{App};
 
 mod app;
 
-fn main() {
-    let event_loop = EventLoop::new().unwrap();
+fn main() -> eframe::Result {
+    let options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default().with_inner_size([800.0, 600.0]),
+        ..Default::default()
+    };
 
-    let mut app = App::new();
-    let _ = event_loop.run_app(&mut app);
+    eframe::run_native("Stellars", options, Box::new(|cc| Ok(Box::new(App::new(cc)))))
 }
