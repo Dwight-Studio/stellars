@@ -95,6 +95,10 @@ impl Stellar {
     pub fn load_rom(&self, path: PathBuf) {
         lock_write(&self.memory).load_rom(path);
     }
+    
+    pub fn rom_loaded(&self) -> bool {
+        !lock_read(&self.memory).game_rom.is_empty()
+    }
 
     pub fn update_inputs(&self, input: Input, pressed: bool) {
         lock_write(&self.controller).update_inputs(input, pressed);
