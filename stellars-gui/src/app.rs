@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use crate::app::stellars_render::StellarsRender;
 use libstellars::controller::InputDevice;
 use libstellars::Stellar;
@@ -71,4 +72,36 @@ impl eframe::App for App {
 
         exit(0);
     }
+}
+
+fn load_image_from_path(path: &PathBuf) -> Result<egui::ColorImage, image::ImageError> {
+    let image = image::ImageReader::open(path)?.decode()?;
+    let size = [image.width() as _, image.height() as _];
+    let image_buffer = image.to_rgba8();
+    let pixels = image_buffer.as_flat_samples();
+    Ok(egui::ColorImage::from_rgba_unmultiplied(
+        size,
+        pixels.as_slice(),
+    ))
+}
+
+fn get_asset_path(filename: &str) -> PathBuf {
+    let candidates = vec![
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets").join(filename),
+
+        std::env::current_exe()
+            .ok()
+            .and_then(|p| p.parent().map(|p| p.join("assets").join(filename)))
+            .unwrap_or_default(),
+
+        PathBuf::from("assets").join(filename),
+    ];
+    
+    for candidate in candidates {
+        if candidate.exists() {
+            return candidate;
+        }
+    }
+
+    PathBuf::from("assets").join(filename)
 }

@@ -1,28 +1,42 @@
 use libstellars::{Color, Stellar, SCREEN_HEIGHT, SCREEN_WIDTH};
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
+use std::sync::atomic::AtomicBool;
 use std::time::{Duration, Instant};
-use eframe::egui::{ColorImage, Context, Key, TextureHandle, TextureOptions, Ui};
+use eframe::egui::{ColorImage, Context, Image, Key, TextureHandle, TextureOptions, Ui};
+use eframe::emath::Vec2;
 use libstellars::controller::{Console, Input, InputDevice, Joystick};
 use libstellars::controller::Console::{P0DifficultyA, P0DifficultyB, P1DifficultyA, P1DifficultyB, Reset, Select, BW};
 use libstellars::controller::Keypad::{R0C0, R0C1, R0C2, R1C0, R1C1, R1C2, R2C0, R2C1, R2C2, R3C0, R3C1, R3C2};
 use crate::app::debugger_state::DebuggerState;
+use crate::app::{get_asset_path, load_image_from_path};
 
 pub struct StellarsRender {
+    splash: ColorImage,
     picture_buffer: Arc<RwLock<[Color; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize]>>,
     texture: TextureHandle,
     target_framerate: f64,
+
+    // FIXME: Emulator related stuff should be moved into another file
+    is_running: Arc<AtomicBool>,
 
     libstellars: Arc<RwLock<Stellar>>,
 }
 
 impl StellarsRender {
     pub fn new(libstellars: Arc<RwLock<Stellar>>, ctx: Context) -> Self {
-        let default_img = ColorImage::from_rgb([SCREEN_WIDTH as usize,  SCREEN_HEIGHT as usize], &vec![0x00; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize * 3]);
+        let start_img =  {
+            if let Ok(splash) = load_image_from_path(&get_asset_path("splash.jpg")) { splash }
+            else { ColorImage::from_rgb([SCREEN_WIDTH as usize, SCREEN_HEIGHT as usize], &vec![0; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize * 3]) }
+        };
+
         Self {
+            splash: start_img.clone(),
             picture_buffer: Arc::new(RwLock::new([Color { r: 0x00, g: 0x00, b: 0x00 }; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize])),
-            texture: ctx.load_texture("render_texture", default_img, TextureOptions::default()),
+            texture: ctx.load_texture("render_texture", start_img, TextureOptions::NEAREST),
             target_framerate: 60.0,
+
+            is_running: Arc::new(AtomicBool::new(false)),
 
             libstellars
         }
@@ -34,6 +48,7 @@ impl StellarsRender {
         let stellars = self.libstellars.clone();
         let picture_buffer = self.picture_buffer.clone();
         let target_framerate = self.target_framerate;
+        let is_running = self.is_running.clone();
 
         std::thread::spawn(move || {
             let frame_duration = Duration::from_secs_f64(1.0 / target_framerate);
@@ -50,6 +65,7 @@ impl StellarsRender {
                 }
 
                 while !debugger_state.is_paused() {
+                    is_running.store(true, std::sync::atomic::Ordering::Relaxed);
                     stellars.read().unwrap().execute();
 
                     debugger_state.update();
@@ -70,18 +86,27 @@ impl StellarsRender {
 
     pub fn render(&mut self, ui: &mut Ui) {
         let mut buff = Vec::<u8>::with_capacity(SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize * 3);
-        let picture_buffer = self.picture_buffer.read().unwrap();
+        let available_size = ui.available_size();
 
-        for pixel in picture_buffer.iter() {
-            buff.push(pixel.r);
-            buff.push(pixel.g);
-            buff.push(pixel.b);
+        if self.is_running.load(std::sync::atomic::Ordering::Relaxed) {
+            let picture_buffer = self.picture_buffer.read().unwrap();
+
+            for pixel in picture_buffer.iter() {
+                buff.push(pixel.r);
+                buff.push(pixel.g);
+                buff.push(pixel.b);
+            }
+
+            drop(picture_buffer);
+
+            self.texture.set(ColorImage::from_rgb([SCREEN_WIDTH as usize, SCREEN_HEIGHT as usize], &buff), TextureOptions::NEAREST);
+        } else {
+            self.texture.set(self.splash.clone(), TextureOptions::LINEAR);
         }
 
-        drop(picture_buffer);
-
-        self.texture.set(ColorImage::from_rgb([SCREEN_WIDTH as usize,  SCREEN_HEIGHT as usize], &buff), TextureOptions::default());
-        ui.image(&self.texture);
+        ui.add(
+            Image::new(&self.texture).fit_to_exact_size(Vec2::new(available_size.x, available_size.y)).maintain_aspect_ratio(false)
+        );
     }
 
     pub fn update_inputs(&mut self, key: Key, pressed: bool, input_device: InputDevice) {

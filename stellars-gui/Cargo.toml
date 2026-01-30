@@ -6,5 +6,6 @@ edition = "2024"
 [dependencies]
 libstellars = {path = "../libstellars"}
 eframe = "0.33.3"
+image = "0.25.9"
 rfd = "0.17.2"
 cpal = "0.17.1"
