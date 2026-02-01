@@ -1,11 +1,11 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 use crate::app::stellars_render::StellarsRender;
 use libstellars::controller::InputDevice;
 use libstellars::Stellar;
 use std::process::exit;
-use std::sync::{Arc, RwLock};
-use eframe::egui::{vec2, Context, Event, Ui};
+use std::sync::Arc;
+use eframe::egui::{Context, Event, FontData, FontDefinitions, FontFamily, ViewportCommand};
 use eframe::{egui, CreationContext, Frame};
 use rfd::FileDialog;
 use crate::app::stellars_audio::StellarsAudio;
@@ -17,35 +17,57 @@ mod debugger_state;
 mod stellars_audio;
 mod stellars_state;
 
+#[derive(Clone)]
+enum Menus {
+    LoadRom,
+    Quit,
+
+    Configuration,
+    Inputs,
+
+    Website,
+    Github,
+    About,
+}
+
+pub const DEFAULT_FONT: &str = "cairopixel";
+
 pub struct App {
+    ctx: Context,
+
     stellars_render: StellarsRender,
     stellars_audio: StellarsAudio,
     stellars_state: StellarsState,
     input_device: InputDevice,
 
-    menu_content: HashMap<String, Vec<MenuContent>>,
+    menu_content: Vec<(String, Vec<MenuContent<Menus>>)>,
 }
 
 impl App {
     pub fn new(cc: &CreationContext) -> Self {
         let libstellars = Stellar::new();
-        let menu_content = HashMap::from([
+        let menu_content = Vec::from([
             (String::from("File"), vec![
-                MenuContent::Button { label: String::from("Load ROM") },
-                MenuContent::Button { label: String::from("Quit") },
+                MenuContent::Button { btn: Menus::LoadRom, label: String::from("Load ROM") },
+                MenuContent::Separator,
+                MenuContent::Button { btn: Menus::Quit, label: String::from("Quit") },
             ]),
             (String::from("Emulation"), vec![
-                MenuContent::Button { label: String::from("Configuration") },
-                MenuContent::Button { label: String::from("Inputs") },
+                MenuContent::Button { btn: Menus::Configuration, label: String::from("Configuration") },
+                MenuContent::Button { btn: Menus::Inputs, label: String::from("Inputs") },
             ]),
             (String::from("Help"), vec![
-                MenuContent::Button { label: String::from("Website") },
-                MenuContent::Button { label: String::from("GitHub") },
-                MenuContent::Button { label: String::from("About") },
+                MenuContent::Button { btn: Menus::Website, label: String::from("Website") },
+                MenuContent::Button { btn: Menus::Github, label: String::from("GitHub") },
+                MenuContent::Button { btn: Menus::About, label: String::from("About") },
             ])
         ]);
 
+        setup_fonts(&cc.egui_ctx);
+
         Self {
+            ctx: cc.egui_ctx.clone(),
+
             stellars_render: StellarsRender::new(libstellars.clone(), cc.egui_ctx.clone()),
             stellars_audio: StellarsAudio::new(libstellars.clone()),
             stellars_state: StellarsState::new(libstellars),
@@ -55,38 +77,27 @@ impl App {
         }
     }
 
-    fn show_menu_bar(&self, ui: &mut Ui) {
-        MenuBar::default().ui(ui, &self.menu_content, |label| self.menu_btn_clicked(label));
-        /*ui.horizontal(|ui| {
-            ui.menu_button("File", |ui| {
-                if ui.button("Open ROM").clicked() {
-                    let file = FileDialog::new()
-                        .add_filter("ROM File", &["a26", "bin"])
-                        .set_directory(std::env::home_dir().unwrap_or_default())
-                        .pick_file();
+    fn menu_btn_clicked(&self, btn: Menus) {
+        match btn {
+            Menus::LoadRom => {
+                let file = FileDialog::new()
+                    .add_filter("ROM File", &["a26", "bin"])
+                    .set_directory(std::env::home_dir().unwrap_or_default())
+                    .pick_file();
 
-                    if let Some(path) = file {
-                        self.stellars_state.run_rom(path);
-                    }
+                if let Some(path) = file {
+                    self.stellars_state.run_rom(path);
                 }
-                if ui.button("Quit").clicked() {}
-            });
-            ui.menu_button("Emulation", |ui| {
-                if ui.button("Configuration").clicked() {}
-                if ui.button("Inputs").clicked() {}
-            });
-            ui.menu_button("Help", |ui| {
-                if ui.button("Website").clicked() {}
-                if ui.button("Github repository").clicked() {}
-                if ui.button("About").clicked() {}
-            });
-
-            ui.set_min_size(vec2(ui.available_width(), ui.spacing().interact_size.y));
-        });*/
-    }
-
-    fn menu_btn_clicked(&self, label: String) {
-
+            }
+            Menus::Quit => {
+                self.ctx.send_viewport_cmd(ViewportCommand::Close);
+            }
+            Menus::Configuration => {}
+            Menus::Inputs => {}
+            Menus::Website => {}
+            Menus::Github => {}
+            Menus::About => {}
+        }
     }
 }
 
@@ -106,8 +117,7 @@ impl eframe::App for App {
             fill: ctx.style().visuals.window_fill,
             ..Default::default()
         }).show(ctx, |ui| {
-            self.show_menu_bar(ui);
-            ui.separator();
+            MenuBar::default().ui(ui, &self.menu_content, |btn| self.menu_btn_clicked(btn));
             self.stellars_render.render(ui, &self.stellars_state);
         });
 
@@ -120,6 +130,21 @@ impl eframe::App for App {
 
         exit(0);
     }
+}
+
+fn setup_fonts(ctx: &Context) {
+    let mut fonts = FontDefinitions::default();
+    let mut fam   = BTreeMap::new();
+
+    fonts.font_data.insert(
+        DEFAULT_FONT.to_owned(),
+        Arc::from(FontData::from_static(include_bytes!("../assets/Cairopixel.ttf")))
+    );
+
+    fam.insert(FontFamily::Name(Arc::from(DEFAULT_FONT.to_owned())), vec![DEFAULT_FONT.to_owned()]);
+    fonts.families.append(&mut fam);
+
+    ctx.set_fonts(fonts);
 }
 
 fn load_image_from_path(path: &PathBuf) -> Result<egui::ColorImage, image::ImageError> {
