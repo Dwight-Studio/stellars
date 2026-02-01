@@ -1,13 +1,16 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 use crate::app::stellars_render::StellarsRender;
 use libstellars::controller::InputDevice;
 use libstellars::Stellar;
 use std::process::exit;
-use eframe::egui::{Context, Event};
+use std::sync::{Arc, RwLock};
+use eframe::egui::{vec2, Context, Event, Ui};
 use eframe::{egui, CreationContext, Frame};
 use rfd::FileDialog;
 use crate::app::stellars_audio::StellarsAudio;
 use crate::app::stellars_state::StellarsState;
+use crate::widgets::menu_bar::{MenuBar, MenuContent};
 
 mod stellars_render;
 mod debugger_state;
@@ -18,18 +21,72 @@ pub struct App {
     stellars_render: StellarsRender,
     stellars_audio: StellarsAudio,
     stellars_state: StellarsState,
-    input_device: InputDevice
+    input_device: InputDevice,
+
+    menu_content: HashMap<String, Vec<MenuContent>>,
 }
 
 impl App {
     pub fn new(cc: &CreationContext) -> Self {
         let libstellars = Stellar::new();
+        let menu_content = HashMap::from([
+            (String::from("File"), vec![
+                MenuContent::Button { label: String::from("Load ROM") },
+                MenuContent::Button { label: String::from("Quit") },
+            ]),
+            (String::from("Emulation"), vec![
+                MenuContent::Button { label: String::from("Configuration") },
+                MenuContent::Button { label: String::from("Inputs") },
+            ]),
+            (String::from("Help"), vec![
+                MenuContent::Button { label: String::from("Website") },
+                MenuContent::Button { label: String::from("GitHub") },
+                MenuContent::Button { label: String::from("About") },
+            ])
+        ]);
+
         Self {
             stellars_render: StellarsRender::new(libstellars.clone(), cc.egui_ctx.clone()),
             stellars_audio: StellarsAudio::new(libstellars.clone()),
             stellars_state: StellarsState::new(libstellars),
-            input_device: InputDevice::Joystick
+            input_device: InputDevice::Joystick,
+
+            menu_content
         }
+    }
+
+    fn show_menu_bar(&self, ui: &mut Ui) {
+        MenuBar::default().ui(ui, &self.menu_content, |label| self.menu_btn_clicked(label));
+        /*ui.horizontal(|ui| {
+            ui.menu_button("File", |ui| {
+                if ui.button("Open ROM").clicked() {
+                    let file = FileDialog::new()
+                        .add_filter("ROM File", &["a26", "bin"])
+                        .set_directory(std::env::home_dir().unwrap_or_default())
+                        .pick_file();
+
+                    if let Some(path) = file {
+                        self.stellars_state.run_rom(path);
+                    }
+                }
+                if ui.button("Quit").clicked() {}
+            });
+            ui.menu_button("Emulation", |ui| {
+                if ui.button("Configuration").clicked() {}
+                if ui.button("Inputs").clicked() {}
+            });
+            ui.menu_button("Help", |ui| {
+                if ui.button("Website").clicked() {}
+                if ui.button("Github repository").clicked() {}
+                if ui.button("About").clicked() {}
+            });
+
+            ui.set_min_size(vec2(ui.available_width(), ui.spacing().interact_size.y));
+        });*/
+    }
+
+    fn menu_btn_clicked(&self, label: String) {
+
     }
 }
 
@@ -49,30 +106,7 @@ impl eframe::App for App {
             fill: ctx.style().visuals.window_fill,
             ..Default::default()
         }).show(ctx, |ui| {
-            egui::MenuBar::new().ui(ui, |ui| {
-                ui.menu_button("File", |ui| {
-                    if ui.button("Open ROM").clicked() {
-                        let file = FileDialog::new()
-                            .add_filter("ROM File", &["a26", "bin"])
-                            .set_directory(std::env::home_dir().unwrap_or_default())
-                            .pick_file();
-
-                        if let Some(path) = file {
-                            self.stellars_state.run_rom(path);
-                        }
-                    }
-                    if ui.button("Quit").clicked() {}
-                });
-                ui.menu_button("Emulation", |ui| {
-                    if ui.button("Configuration").clicked() {}
-                    if ui.button("Inputs").clicked() {}
-                });
-                ui.menu_button("Help", |ui| {
-                    if ui.button("Website").clicked() {}
-                    if ui.button("Github repository").clicked() {}
-                    if ui.button("About").clicked() {}
-                });
-            });
+            self.show_menu_bar(ui);
             ui.separator();
             self.stellars_render.render(ui, &self.stellars_state);
         });

@@ -2,6 +2,7 @@ use eframe::egui;
 use crate::app::{App};
 
 mod app;
+mod widgets;
 
 fn main() -> eframe::Result {
     let options = eframe::NativeOptions {

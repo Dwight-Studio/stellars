@@ -21,7 +21,7 @@ impl StellarsState {
         let mut state = Self {
             libstellars,
 
-            target_framerate: 50.0,
+            target_framerate: 60.0,
             picture_buffer: Arc::new(RwLock::new([Color { r: 0x00, g: 0x00, b: 0x00 }; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize])),
             is_running: Arc::new(AtomicBool::new(false)),
             should_stop: Arc::new(AtomicBool::new(false)),
