@@ -372,6 +372,37 @@ impl Tia {
         self.tia_debug
     }
 
+    pub fn reset(&mut self) {
+        self.pic_buffer = [Color { r: 0x00, g: 0x00, b: 0x00 }; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize];
+        self.tia_debug  = TiaDebug {
+            picture_scanline: 1,
+            horizontal_counter: 1,
+            vsync_enabled: false,
+            vblank_enabled: false
+        };
+
+        self.wo_regs = [0x00; 0x2D];
+        self.ro_regs = [0; 0x0E];
+
+        self.pic_x = 0x0000;
+        self.pic_y = 0x0000;
+        self.pf_pixels_per_bit = (SCREEN_WIDTH as u16 / 2) / 20;
+        self.clock_count = 0;
+
+        self.missile0 = Object::new();
+        self.missile1 = Object::new();
+        self.ball     = Object::new();
+        self.player0  = Object::new();
+        self.player1  = Object::new();
+        self.collision = Collision::default();
+
+        if let Some(ch0) = &self.channel_0 {
+            let sample_rate = ch0.sample_rate();
+            self.channel_0 = Some(AudioChannel::new(sample_rate));
+            self.channel_1 = Some(AudioChannel::new(sample_rate));
+        }
+    }
+
     fn check_playfield(&mut self) {
         let rel_pic_x = self.pic_x - 68;
         let pf_register = (self.get_wo_reg(WORegs::Pf0).value.reverse_bits() as u32) << 16 | (self.get_wo_reg(WORegs::Pf1).value as u32) << 8 | (self.get_wo_reg(WORegs::Pf2).value.reverse_bits() as u32);

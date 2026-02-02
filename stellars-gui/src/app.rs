@@ -5,17 +5,20 @@ use libstellars::controller::InputDevice;
 use libstellars::Stellar;
 use std::process::exit;
 use std::sync::Arc;
-use eframe::egui::{Context, Event, FontData, FontDefinitions, FontFamily, ViewportCommand};
+use eframe::egui::{Context, Event, FontData, FontDefinitions, FontFamily, FontId, ViewportCommand};
 use eframe::{egui, CreationContext, Frame};
 use rfd::FileDialog;
+use crate::app::app_state::AppState;
 use crate::app::stellars_audio::StellarsAudio;
 use crate::app::stellars_state::StellarsState;
+use crate::widgets::config_window::ConfigWindow;
 use crate::widgets::menu_bar::{MenuBar, MenuContent};
 
 mod stellars_render;
 mod debugger_state;
 mod stellars_audio;
 mod stellars_state;
+mod app_state;
 
 #[derive(Clone)]
 enum Menus {
@@ -24,6 +27,8 @@ enum Menus {
 
     Configuration,
     Inputs,
+    Reset,
+    Stop,
 
     Website,
     Github,
@@ -41,6 +46,7 @@ pub struct App {
     input_device: InputDevice,
 
     menu_content: Vec<(String, Vec<MenuContent<Menus>>)>,
+    app_state: AppState,
 }
 
 impl App {
@@ -55,6 +61,9 @@ impl App {
             (String::from("Emulation"), vec![
                 MenuContent::Button { btn: Menus::Configuration, label: String::from("Configuration") },
                 MenuContent::Button { btn: Menus::Inputs, label: String::from("Inputs") },
+                MenuContent::Separator,
+                MenuContent::Button { btn: Menus::Reset, label: String::from("Reset") },
+                MenuContent::Button { btn: Menus::Stop, label: String::from("Stop") },
             ]),
             (String::from("Help"), vec![
                 MenuContent::Button { btn: Menus::Website, label: String::from("Website") },
@@ -73,13 +82,16 @@ impl App {
             stellars_state: StellarsState::new(libstellars),
             input_device: InputDevice::Joystick,
 
-            menu_content
+            menu_content,
+            app_state: AppState::default(),
         }
     }
 
-    fn menu_btn_clicked(&self, btn: Menus) {
+    fn menu_btn_clicked(&mut self, btn: Menus) {
         match btn {
             Menus::LoadRom => {
+                // TODO: It would be nice to keep the last selected file location so that the next
+                //       file dialog is opening at the old file location if possible.
                 let file = FileDialog::new()
                     .add_filter("ROM File", &["a26", "bin"])
                     .set_directory(std::env::home_dir().unwrap_or_default())
@@ -92,8 +104,18 @@ impl App {
             Menus::Quit => {
                 self.ctx.send_viewport_cmd(ViewportCommand::Close);
             }
-            Menus::Configuration => {}
+
+            Menus::Configuration => {
+                self.app_state.open_config = true;
+            }
             Menus::Inputs => {}
+            Menus::Reset => {
+                self.stellars_state.reset();
+            }
+            Menus::Stop => {
+                self.stellars_state.stop();
+            }
+
             Menus::Website => {}
             Menus::Github => {}
             Menus::About => {}
@@ -117,8 +139,12 @@ impl eframe::App for App {
             fill: ctx.style().visuals.window_fill,
             ..Default::default()
         }).show(ctx, |ui| {
-            MenuBar::default().ui(ui, &self.menu_content, |btn| self.menu_btn_clicked(btn));
+            MenuBar.ui(ui, self.menu_content.clone(), |btn| self.menu_btn_clicked(btn));
             self.stellars_render.render(ui, &self.stellars_state);
+
+            if self.app_state.open_config {
+                ConfigWindow::show(ctx, &mut self.app_state.config_window_state);
+            }
         });
 
         ctx.request_repaint();
@@ -145,6 +171,10 @@ fn setup_fonts(ctx: &Context) {
     fonts.families.append(&mut fam);
 
     ctx.set_fonts(fonts);
+
+    ctx.style_mut(|style| {
+        style.override_font_id = Some(FontId::new(20.0, FontFamily::Name(Arc::from(DEFAULT_FONT.to_owned()))));
+    })
 }
 
 fn load_image_from_path(path: &PathBuf) -> Result<egui::ColorImage, image::ImageError> {

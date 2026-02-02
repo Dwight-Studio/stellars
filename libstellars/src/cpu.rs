@@ -71,6 +71,16 @@ impl Cpu {
     pub fn get_debug_info(&self) -> CpuDebug {
         self.cpu_debug
     }
+    
+    pub fn reset(&mut self) {
+        let registers = Registers::new();
+        
+        self.registers = registers;
+        self.cpu_debug = CpuDebug {
+            registers,
+            executed_opcode: (0x00, 0x0000)
+        };
+    }
 
     pub(crate) fn init_pc(&mut self, pc: u16) {
         self.registers.pc = pc;

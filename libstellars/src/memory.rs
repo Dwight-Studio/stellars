@@ -153,6 +153,10 @@ impl Memory {
     pub fn check_bank_switching(&mut self, address: u16, value: Option<u8>) {
         self.mapper.check_switch(address, value);
     }
+
+    pub fn reset(&mut self) {
+        self.ram = [0x00; 0x80];
+    }
 }
 
 #[cfg(feature = "test-utils")]

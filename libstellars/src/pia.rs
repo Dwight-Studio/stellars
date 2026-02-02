@@ -121,4 +121,16 @@ impl Pia {
 
         self.decrement();
     }
+
+    pub fn reset(&mut self) {
+        self.intim  = 0;
+        self.instat = 0;
+        self.tim1t  = 0;
+        self.tim8t  = 0;
+        self.tim64t = 0;
+        self.t1024t = 0;
+        self.selected_timer = Timer::Tim1t;
+        self.old_timer      = Timer::Tim1t;
+        self.internal_clock = 1;
+    }
 }

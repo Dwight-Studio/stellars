@@ -4,6 +4,7 @@ use eframe::egui::containers::menu::{MenuButton, MenuConfig};
 use eframe::epaint::FontFamily;
 use crate::app::DEFAULT_FONT;
 
+#[derive(Clone)]
 pub enum MenuContent<N>
 where
     N: Clone
@@ -16,7 +17,7 @@ where
 pub struct MenuBar;
 
 impl MenuBar {
-    pub fn ui<N>(&mut self, ui: &mut Ui, menus: &Vec<(String, Vec<MenuContent<N>>)>, btn_clicked: impl Fn(N)) -> InnerResponse<()>
+    pub fn ui<N>(&mut self, ui: &mut Ui, menus: Vec<(String, Vec<MenuContent<N>>)>, mut btn_clicked: impl FnMut(N)) -> InnerResponse<()>
     where
         N: Clone
     {

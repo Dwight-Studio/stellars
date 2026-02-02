@@ -42,6 +42,8 @@ impl StellarsState {
     }
 
     pub fn run_rom(&self, path: PathBuf) {
+        self.should_run.store(false, Ordering::Relaxed);
+        while self.is_running.load(Ordering::Relaxed) {}
         if let Ok(libstellars) = self.libstellars.read() {
             libstellars.load_rom(path);
             self.should_run.store(true, Ordering::Relaxed);
@@ -50,6 +52,19 @@ impl StellarsState {
 
     pub fn is_running(&self) -> bool {
         self.is_running.load(Ordering::Relaxed)
+    }
+
+    pub fn reset(&self) {
+        self.stop();
+        self.should_run.store(true, Ordering::Relaxed);
+    }
+
+    pub fn stop(&self) {
+        self.should_run.store(false, Ordering::Relaxed);
+        while self.is_running.load(Ordering::Relaxed) {}
+        if let Ok(libstellars) = self.libstellars.read() {
+            libstellars.reset();
+        }
     }
 
     pub fn shutdown(&mut self) {
@@ -72,7 +87,7 @@ impl StellarsState {
             let mut frame_start = Instant::now();
 
             while !should_stop.load(Ordering::Relaxed) {
-                if stellars.read().unwrap().rom_loaded() && should_run.load(Ordering::Relaxed) {
+                if should_run.load(Ordering::Relaxed) && stellars.read().unwrap().rom_loaded() {
                     is_running.store(true, Ordering::Relaxed);
                     stellars.read().unwrap().execute();
 

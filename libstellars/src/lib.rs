@@ -93,7 +93,9 @@ impl Stellar {
 
     #[cfg(not(feature = "test-utils"))]
     pub fn load_rom(&self, path: PathBuf) {
-        lock_write(&self.memory).load_rom(path);
+        self.reset();
+        lock_write(&self.memory).load_rom(path.clone());
+        println!("Loaded ROM: {path:?}");
     }
     
     pub fn rom_loaded(&self) -> bool {
@@ -122,6 +124,13 @@ impl Stellar {
 
     pub fn use_audio(&self, sample_rate: usize) {
         lock_write(&self.tia).use_audio(sample_rate);
+    }
+
+    pub fn reset(&self) {
+        lock_write(&self.tia).reset();
+        lock_write(&self.cpu).reset();
+        lock_write(&self.memory).reset();
+        lock_write(&self.pia).reset();
     }
 
     #[cfg(not(feature = "test-utils"))]

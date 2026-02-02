@@ -121,4 +121,8 @@ impl AudioChannel {
     pub fn set_audv(&mut self, audio_volume: u8) {
         self.audv = audio_volume;
     }
+    
+    pub fn sample_rate(&self) -> usize {
+        self.sample_rate
+    }
 }
