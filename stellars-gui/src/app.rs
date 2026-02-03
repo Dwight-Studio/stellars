@@ -5,7 +5,7 @@ use libstellars::controller::InputDevice;
 use libstellars::Stellar;
 use std::process::exit;
 use std::sync::Arc;
-use eframe::egui::{Context, Event, FontData, FontDefinitions, FontFamily, FontId, ViewportCommand};
+use eframe::egui::{Context, CornerRadius, Event, FontData, FontDefinitions, FontFamily, FontId, Margin, Stroke, ViewportCommand};
 use eframe::{egui, CreationContext, Frame};
 use rfd::FileDialog;
 use crate::app::app_state::AppState;
@@ -106,7 +106,7 @@ impl App {
             }
 
             Menus::Configuration => {
-                self.app_state.open_config = true;
+                self.app_state.config_window_state.opened = true;
             }
             Menus::Inputs => {}
             Menus::Reset => {
@@ -142,9 +142,7 @@ impl eframe::App for App {
             MenuBar.ui(ui, self.menu_content.clone(), |btn| self.menu_btn_clicked(btn));
             self.stellars_render.render(ui, &self.stellars_state);
 
-            if self.app_state.open_config {
-                ConfigWindow::show(ctx, &mut self.app_state.config_window_state);
-            }
+            ConfigWindow::show(ctx, &mut self.app_state.config_window_state);
         });
 
         ctx.request_repaint();
@@ -174,6 +172,16 @@ fn setup_fonts(ctx: &Context) {
 
     ctx.style_mut(|style| {
         style.override_font_id = Some(FontId::new(20.0, FontFamily::Name(Arc::from(DEFAULT_FONT.to_owned()))));
+        style.visuals.window_corner_radius = CornerRadius::ZERO;
+        style.visuals.menu_corner_radius = CornerRadius::ZERO;
+        style.visuals.widgets.hovered.corner_radius = CornerRadius::ZERO;
+        style.visuals.widgets.active.corner_radius = CornerRadius::ZERO;
+        style.visuals.widgets.active.bg_stroke = Stroke::NONE;
+        style.visuals.widgets.inactive.corner_radius = CornerRadius::ZERO;
+        style.visuals.widgets.hovered.bg_stroke = Stroke::NONE;
+        style.visuals.widgets.open.corner_radius = CornerRadius::ZERO;
+        style.visuals.widgets.noninteractive.corner_radius = CornerRadius::ZERO;
+        style.spacing.menu_margin = Margin::ZERO;
     })
 }
 

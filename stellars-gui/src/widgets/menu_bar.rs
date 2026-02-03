@@ -1,8 +1,5 @@
-use std::sync::Arc;
-use eframe::egui::{vec2, Color32, CornerRadius, FontId, InnerResponse, Margin, Popup, Response, Separator, Stroke, Style, TextStyle, Ui};
+use eframe::egui::{vec2, Color32, InnerResponse, Popup, Response, Separator, Stroke, Style, Ui};
 use eframe::egui::containers::menu::{MenuButton, MenuConfig};
-use eframe::epaint::FontFamily;
-use crate::app::DEFAULT_FONT;
 
 #[derive(Clone)]
 pub enum MenuContent<N>
@@ -67,25 +64,16 @@ impl MenuBar {
 
 fn menu_style(style: &mut Style) {
     style.spacing.button_padding = vec2(20.0, 4.0);
-    style.visuals.menu_corner_radius = CornerRadius::ZERO;
-    style.spacing.menu_margin = Margin::ZERO;
-    style.visuals.widgets.active.bg_stroke = Stroke::NONE;
-    style.visuals.widgets.hovered.corner_radius = CornerRadius::ZERO;
     style.visuals.widgets.open.bg_stroke = Stroke::NONE;
-    style.visuals.widgets.hovered.bg_stroke = Stroke::NONE;
     style.visuals.widgets.inactive.weak_bg_fill = Color32::TRANSPARENT;
     style.visuals.widgets.inactive.bg_stroke = Stroke::NONE;
-    style.text_styles.insert(TextStyle::Button, FontId::new(20.0, FontFamily::Name(Arc::from(DEFAULT_FONT.to_owned()))));
 }
 
 fn menu_button_style(style: &mut Style) {
     style.spacing.button_padding = vec2(6.0, 4.0);
-    style.visuals.widgets.active.bg_stroke = Stroke::NONE;
     style.visuals.widgets.active.weak_bg_fill = Color32::TRANSPARENT;
     style.visuals.widgets.open.bg_stroke = Stroke::NONE;
-    style.visuals.widgets.hovered.bg_stroke = Stroke::NONE;
     style.visuals.widgets.hovered.weak_bg_fill = Color32::TRANSPARENT;
     style.visuals.widgets.inactive.weak_bg_fill = Color32::TRANSPARENT;
     style.visuals.widgets.inactive.bg_stroke = Stroke::NONE;
-    style.text_styles.insert(TextStyle::Button, FontId::new(20.0, FontFamily::Name(Arc::from(DEFAULT_FONT.to_owned()))));
 }
