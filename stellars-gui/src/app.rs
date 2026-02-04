@@ -18,7 +18,7 @@ mod stellars_render;
 mod debugger_state;
 mod stellars_audio;
 mod stellars_state;
-mod app_state;
+pub mod app_state;
 
 #[derive(Clone)]
 enum Menus {
@@ -42,11 +42,10 @@ pub struct App {
 
     stellars_render: StellarsRender,
     stellars_audio: StellarsAudio,
-    stellars_state: StellarsState,
     input_device: InputDevice,
 
     menu_content: Vec<(String, Vec<MenuContent<Menus>>)>,
-    app_state: AppState,
+    state: AppState,
 }
 
 impl App {
@@ -79,11 +78,13 @@ impl App {
 
             stellars_render: StellarsRender::new(libstellars.clone(), cc.egui_ctx.clone()),
             stellars_audio: StellarsAudio::new(libstellars.clone()),
-            stellars_state: StellarsState::new(libstellars),
             input_device: InputDevice::Joystick,
 
             menu_content,
-            app_state: AppState::default(),
+            state: AppState {
+                config_window_state: ConfigWindow::default(),
+                stellars_state: StellarsState::new(libstellars)
+            },
         }
     }
 
@@ -98,7 +99,7 @@ impl App {
                     .pick_file();
 
                 if let Some(path) = file {
-                    self.stellars_state.run_rom(path);
+                    self.state.stellars_state.run_rom(path);
                 }
             }
             Menus::Quit => {
@@ -106,14 +107,14 @@ impl App {
             }
 
             Menus::Configuration => {
-                self.app_state.config_window_state.opened = true;
+                self.state.config_window_state.opened = true;
             }
             Menus::Inputs => {}
             Menus::Reset => {
-                self.stellars_state.reset();
+                self.state.stellars_state.reset();
             }
             Menus::Stop => {
-                self.stellars_state.stop();
+                self.state.stellars_state.stop();
             }
 
             Menus::Website => {}
@@ -140,9 +141,9 @@ impl eframe::App for App {
             ..Default::default()
         }).show(ctx, |ui| {
             MenuBar.ui(ui, self.menu_content.clone(), |btn| self.menu_btn_clicked(btn));
-            self.stellars_render.render(ui, &self.stellars_state);
+            self.stellars_render.render(ui, &self.state);
 
-            ConfigWindow::show(ctx, &mut self.app_state.config_window_state);
+            ConfigWindow::show(ctx, &mut self.state);
         });
 
         ctx.request_repaint();
@@ -150,7 +151,7 @@ impl eframe::App for App {
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
         self.stellars_audio.stop();
-        self.stellars_state.shutdown();
+        self.state.stellars_state.shutdown();
 
         exit(0);
     }

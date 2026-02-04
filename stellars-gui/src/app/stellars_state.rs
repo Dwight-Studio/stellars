@@ -3,13 +3,13 @@ use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
-use libstellars::{Color, Stellar, SCREEN_HEIGHT, SCREEN_WIDTH};
+use libstellars::{Color, FormatDefinition, Stellar, VideoFormat, SCREEN_WIDTH};
 
 pub struct StellarsState {
     libstellars: Arc<RwLock<Stellar>>,
 
-    target_framerate: f64,
-    picture_buffer: Arc<RwLock<[Color; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize]>>,
+    target_framerate: Arc<RwLock<f32>>,
+    picture_buffer: Arc<RwLock<Vec<Color>>>,
     is_running: Arc<AtomicBool>,
     should_stop: Arc<AtomicBool>,
     should_run: Arc<AtomicBool>,
@@ -18,11 +18,15 @@ pub struct StellarsState {
 
 impl StellarsState {
     pub fn new(libstellars: Arc<RwLock<Stellar>>) -> StellarsState {
+        let format = match libstellars.read() {
+            Ok(libstellars) => { libstellars.curr_video_format() }
+            Err(err) => { panic!("Error getting video format: {}", err); }
+        };
         let mut state = Self {
             libstellars,
 
-            target_framerate: 60.0,
-            picture_buffer: Arc::new(RwLock::new([Color { r: 0x00, g: 0x00, b: 0x00 }; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize])),
+            target_framerate: Arc::new(RwLock::new(format.framerate())),
+            picture_buffer: Arc::new(RwLock::new(vec![Color::default(); SCREEN_WIDTH as usize * format.screen_height() as usize])),
             is_running: Arc::new(AtomicBool::new(false)),
             should_stop: Arc::new(AtomicBool::new(false)),
             should_run: Arc::new(AtomicBool::new(false)),
@@ -50,8 +54,24 @@ impl StellarsState {
         }
     }
 
+    pub fn set_video_format(&self, video_format: VideoFormat) {
+        self.should_run.store(false, Ordering::Relaxed);
+        while self.is_running.load(Ordering::Relaxed) {}
+        if let Ok(libstellars) = self.libstellars.read() {
+            libstellars.set_video_format(video_format);
+            let format = self.libstellars.read().unwrap().curr_video_format();
+            self.picture_buffer.write().unwrap().resize(SCREEN_WIDTH as usize * format.screen_height() as usize, Color::default());
+            *self.target_framerate.write().unwrap() = format.framerate();
+            self.should_run.store(true, Ordering::Relaxed);
+        }
+    }
+
     pub fn is_running(&self) -> bool {
         self.is_running.load(Ordering::Relaxed)
+    }
+
+    pub fn curr_video_format(&self) -> FormatDefinition {
+        self.libstellars.read().unwrap().curr_video_format()
     }
 
     pub fn reset(&self) {
@@ -77,17 +97,22 @@ impl StellarsState {
     fn run(&mut self) {
         let stellars = self.libstellars.clone();
         let picture_buffer = self.picture_buffer.clone();
-        let target_framerate = self.target_framerate;
+        let target_framerate = self.target_framerate.clone();
         let is_running = self.is_running.clone();
         let should_stop = self.should_stop.clone();
         let should_run = self.should_run.clone();
 
         self.emu_thread = Some(std::thread::spawn(move || {
-            let frame_duration = Duration::from_secs_f64(1.0 / target_framerate);
+            let mut old_framerate = *target_framerate.read().unwrap();
+            let mut frame_duration = Duration::from_secs_f32(1.0 / old_framerate);
             let mut frame_start = Instant::now();
 
             while !should_stop.load(Ordering::Relaxed) {
                 if should_run.load(Ordering::Relaxed) && stellars.read().unwrap().rom_loaded() {
+                    if old_framerate != *target_framerate.read().unwrap() {
+                        old_framerate = *target_framerate.read().unwrap();
+                        frame_duration = Duration::from_secs_f32(1.0 / old_framerate);
+                    }
                     is_running.store(true, Ordering::Relaxed);
                     stellars.read().unwrap().execute();
 

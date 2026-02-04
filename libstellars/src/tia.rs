@@ -2,13 +2,15 @@ mod colors;
 mod register;
 mod object;
 mod audio_channel;
+pub mod format_definition;
 
 use crate::tia::colors::NTSC_COLORS;
-use crate::{bus_read, Color, Stellar, SCREEN_HEIGHT, SCREEN_WIDTH};
+use crate::{bus_read, Color, Stellar, VideoFormat, SCREEN_WIDTH};
 use std::sync::{RwLock, Weak};
 use std::sync::atomic::Ordering;
 use crate::debug::{TiaDebug};
 use crate::tia::audio_channel::AudioChannel;
+use crate::tia::format_definition::FormatDefinition;
 use crate::tia::object::Object;
 use crate::tia::register::Register;
 
@@ -137,7 +139,8 @@ struct Collision {
 
 pub struct Tia {
     pub(crate) bus: Option<Weak<RwLock<Stellar>>>,
-    pub(crate) pic_buffer: [Color; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize],
+    video_format: FormatDefinition,
+    pub(crate) pic_buffer: Vec<Color>,
     tia_debug: TiaDebug,
 
     /* Registers */
@@ -148,7 +151,7 @@ pub struct Tia {
     pic_x: u16,
     pic_y: u16,
     pf_pixels_per_bit: u16,
-    clock_count: u64,
+    clock_count: usize,
 
     missile0: Object,
     missile1: Object,
@@ -165,7 +168,8 @@ impl Tia {
     pub fn new() -> Tia {
         Self {
             bus: None,
-            pic_buffer: [Color { r: 0x00, g: 0x00, b: 0x00 }; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize],
+            video_format: FormatDefinition::ntsc(),
+            pic_buffer: vec![Color::default(); SCREEN_WIDTH as usize * FormatDefinition::ntsc().full_frame as usize],
             tia_debug: TiaDebug {
                 picture_scanline: 1,
                 horizontal_counter: 1,
@@ -283,7 +287,7 @@ impl Tia {
             loop {
                 if self.pic_x >= 228 {
                     self.pic_x = 0;
-                    if self.pic_y <= 262 {
+                    if self.pic_y <= self.video_format.full_frame {
                         self.pic_y += 1;
                         self.tia_debug.picture_scanline = self.pic_y + 1;
                     }
@@ -291,8 +295,8 @@ impl Tia {
                     self.wo_regs[WORegs::Hmove as usize] = 0;
                 }
 
-                if self.pic_x >= 68 + self.get_wo_reg(WORegs::Hmove).value as u16 && self.pic_y < SCREEN_HEIGHT as u16 {
-                    if self.pic_y >= 37 {
+                if self.pic_x >= 68 + self.get_wo_reg(WORegs::Hmove).value as u16 && self.pic_y < self.video_format.full_frame {
+                    if self.pic_y >= self.video_format.vblank as u16 {
                         self.check_player(0);
                         self.check_player(1);
                         self.check_missile(0);
@@ -329,13 +333,12 @@ impl Tia {
                 self.tia_debug.horizontal_counter = self.pic_x + 1;
                 self.clock_count += 1;
 
+                if self.clock_count >= self.video_format.total_counts {
+                    self.clock_count -= self.video_format.total_counts;
+                    bus_read(&self.bus, |bus| { bus.frame_ready.store(true, Ordering::Relaxed) });
+                }
                 if !self.get_wo_reg(WORegs::Wsync).bit(0) { break; }
             }
-        }
-
-        if self.clock_count >= 52896 {
-            self.clock_count -= 52896;
-            bus_read(&self.bus, |bus| { bus.frame_ready.store(true, Ordering::Relaxed) });
         }
     }
 
@@ -373,7 +376,7 @@ impl Tia {
     }
 
     pub fn reset(&mut self) {
-        self.pic_buffer = [Color { r: 0x00, g: 0x00, b: 0x00 }; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize];
+        self.pic_buffer = vec![Color::default(); SCREEN_WIDTH as usize * self.video_format.full_frame as usize];
         self.tia_debug  = TiaDebug {
             picture_scanline: 1,
             horizontal_counter: 1,
@@ -401,6 +404,19 @@ impl Tia {
             self.channel_0 = Some(AudioChannel::new(sample_rate));
             self.channel_1 = Some(AudioChannel::new(sample_rate));
         }
+    }
+
+    pub fn set_video_format(&mut self, video_format: VideoFormat) {
+        match video_format {
+            VideoFormat::Ntsc  => { self.video_format = FormatDefinition::ntsc(); }
+            VideoFormat::Pal   => { self.video_format = FormatDefinition::pal(); }
+            VideoFormat::Secam => { self.video_format = FormatDefinition::secam(); }
+        }
+        self.pic_buffer = vec![Color::default(); SCREEN_WIDTH as usize * self.video_format.full_frame as usize]
+    }
+    
+    pub fn curr_video_format(&self) -> FormatDefinition {
+        self.video_format.clone()
     }
 
     fn check_playfield(&mut self) {

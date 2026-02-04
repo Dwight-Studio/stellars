@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, Weak};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -5,11 +6,13 @@ use crate::controller::{Controller, Input};
 use crate::memory::Memory;
 use crate::cpu::Cpu;
 use crate::tia::Tia;
+use crate::debug::StellarDebugInfo;
+use crate::pia::Pia;
+
+pub use crate::tia::format_definition::FormatDefinition;
 
 #[cfg(feature = "test-utils")]
 use serde_json::{Map, Value};
-use crate::debug::StellarDebugInfo;
-use crate::pia::Pia;
 
 mod cpu;
 mod registers;
@@ -21,14 +24,32 @@ mod debug;
 mod mapper;
 
 pub const SCREEN_WIDTH: u32 = 160;
-pub const SCREEN_HEIGHT: u32 = 262;
 
-#[derive(Copy, Clone)]
+#[derive(PartialEq, Clone)]
+pub enum VideoFormat {
+    Ntsc,
+    Pal,
+    Secam
+}
+
+impl Display for VideoFormat {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let displ = match self {
+            VideoFormat::Ntsc => {"NTSC"}
+            VideoFormat::Pal => {"PAL"}
+            VideoFormat::Secam => {"SECAM"}
+        };
+        write!(f, "{}", displ)
+    }
+}
+
+#[derive(Default, Copy, Clone)]
 pub struct Color {
     pub r: u8,
     pub g: u8,
     pub b: u8,
 }
+
 
 pub struct Stellar {
     pub(crate) memory: Arc<RwLock<Memory>>,
@@ -70,17 +91,17 @@ impl Stellar {
         }
     }
 
-    pub fn get_picture_buffer(&self) -> Option<[Color; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize]> {
+    pub fn get_picture_buffer(&self) -> Option<Vec<Color>> {
         if self.frame_ready.load(Ordering::Relaxed) {
             self.frame_ready.store(false, Ordering::Relaxed);
-            Some(lock_read(&self.tia).pic_buffer)
+            Some(lock_read(&self.tia).pic_buffer.clone())
         } else {
             None
         }
     }
     
-    pub fn unsafe_get_picture_buffer(&self) -> [Color; SCREEN_WIDTH as usize * SCREEN_HEIGHT as usize] {
-        lock_read(&self.tia).pic_buffer
+    pub fn unsafe_get_picture_buffer(&self) -> Vec<Color> {
+        lock_read(&self.tia).pic_buffer.clone()
     }
 
     pub fn get_channel_0_samples(&self, number: usize) -> Vec<u8> {
@@ -131,6 +152,14 @@ impl Stellar {
         lock_write(&self.cpu).reset();
         lock_write(&self.memory).reset();
         lock_write(&self.pia).reset();
+    }
+    
+    pub fn set_video_format(&self, video_format: VideoFormat) {
+        lock_write(&self.tia).set_video_format(video_format);
+    }
+    
+    pub fn curr_video_format(&self) -> FormatDefinition {
+        lock_read(&self.tia).curr_video_format()
     }
 
     #[cfg(not(feature = "test-utils"))]
