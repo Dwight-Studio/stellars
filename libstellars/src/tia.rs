@@ -4,7 +4,6 @@ mod object;
 mod audio_channel;
 pub mod format_definition;
 
-use crate::tia::colors::NTSC_COLORS;
 use crate::{bus_read, Color, Stellar, VideoFormat, SCREEN_WIDTH};
 use std::sync::{RwLock, Weak};
 use std::sync::atomic::Ordering;
@@ -318,7 +317,7 @@ impl Tia {
                             self.draw_background();
                         }
                     } else {
-                        self.pic_buffer[self.pic_y as usize * SCREEN_WIDTH as usize + (self.pic_x as usize - 68)] = NTSC_COLORS[0x00];
+                        self.pic_buffer[self.pic_y as usize * SCREEN_WIDTH as usize + (self.pic_x as usize - 68)] = self.video_format.palette[0x00];
                     }
 
                     self.collision = Collision::default();
@@ -536,7 +535,7 @@ impl Tia {
     }
 
     fn push_pixel(&mut self, color_reg: WORegs) {
-        self.pic_buffer[self.pic_y as usize * SCREEN_WIDTH as usize + (self.pic_x as usize - 68)] = NTSC_COLORS[self.get_wo_reg(color_reg).value as usize];
+        self.pic_buffer[self.pic_y as usize * SCREEN_WIDTH as usize + (self.pic_x as usize - 68)] = self.video_format.palette[self.get_wo_reg(color_reg).value as usize];
     }
 
     fn compute_collisions(&mut self) {
