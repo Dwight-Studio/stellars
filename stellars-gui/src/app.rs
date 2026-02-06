@@ -15,7 +15,6 @@ use crate::widgets::config_window::ConfigWindow;
 use crate::widgets::menu_bar::{MenuBar, MenuContent};
 
 mod stellars_render;
-mod debugger_state;
 mod stellars_audio;
 mod stellars_state;
 pub mod app_state;

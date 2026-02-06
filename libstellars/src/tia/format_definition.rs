@@ -24,7 +24,7 @@ impl FormatDefinition {
         Self {
             vblank: 40,
             full_frame: 262,
-            total_counts: 262 * 228 - 6840, // FIXME: Some current emulation issued might be caused by this hack... We shouldn't subtract anything here.
+            total_counts: 262 * 228,
             framerate: 60.0,
             palette: NTSC_COLORS,
         }
@@ -34,7 +34,7 @@ impl FormatDefinition {
         Self {
             vblank: 48,
             full_frame: 312,
-            total_counts: 312 * 228 - 20000,
+            total_counts: 312 * 228,
             framerate: 50.0,
             palette: PAL_COLORS,
         }

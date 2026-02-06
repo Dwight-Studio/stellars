@@ -150,7 +150,6 @@ pub struct Tia {
     pic_x: u16,
     pic_y: u16,
     pf_pixels_per_bit: u16,
-    clock_count: usize,
 
     missile0: Object,
     missile1: Object,
@@ -182,7 +181,6 @@ impl Tia {
             pic_x: 0x0000,
             pic_y: 0x0000,
             pf_pixels_per_bit: (SCREEN_WIDTH as u16 / 2) / 20,
-            clock_count: 0,
 
             missile0: Object::new(),
             missile1: Object::new(),
@@ -199,12 +197,12 @@ impl Tia {
     pub fn set_wo_reg(&mut self, address: u8, value: u8) {
         match WORegs::from(address) {
             WORegs::Vsync => {
-                self.wo_regs[address as usize] = value;
-                self.pic_y = 0;
-                self.pic_x = 0;
-                self.tia_debug.picture_scanline = 1;
-                self.tia_debug.horizontal_counter = 1;
-                self.clock_count = 0;
+                if Register::new(value).bit(1) {
+                    self.pic_y = 0;
+                    self.pic_x = 0;
+                    self.tia_debug.picture_scanline = 1;
+                    self.tia_debug.horizontal_counter = 1;
+                }
             }
             WORegs::Wsync => { self.wo_regs[address as usize] = 0x1; }
             WORegs::Resp0 => { self.player0.counter_reset(false); }
@@ -330,12 +328,7 @@ impl Tia {
 
                 self.pic_x += 1;
                 self.tia_debug.horizontal_counter = self.pic_x + 1;
-                self.clock_count += 1;
 
-                if self.clock_count >= self.video_format.total_counts {
-                    self.clock_count -= self.video_format.total_counts;
-                    bus_read(&self.bus, |bus| { bus.frame_ready.store(true, Ordering::Relaxed) });
-                }
                 if !self.get_wo_reg(WORegs::Wsync).bit(0) { break; }
             }
         }
@@ -389,7 +382,6 @@ impl Tia {
         self.pic_x = 0x0000;
         self.pic_y = 0x0000;
         self.pf_pixels_per_bit = (SCREEN_WIDTH as u16 / 2) / 20;
-        self.clock_count = 0;
 
         self.missile0 = Object::new();
         self.missile1 = Object::new();
@@ -536,6 +528,10 @@ impl Tia {
 
     fn push_pixel(&mut self, color_reg: WORegs) {
         self.pic_buffer[self.pic_y as usize * SCREEN_WIDTH as usize + (self.pic_x as usize - 68)] = self.video_format.palette[self.get_wo_reg(color_reg).value as usize];
+
+        if self.pic_y as usize * 228 + self.pic_x as usize >= self.video_format.total_counts - 1 {
+            bus_read(&self.bus, |bus| { bus.frame_ready.store(true, Ordering::Relaxed) });
+        }
     }
 
     fn compute_collisions(&mut self) {
