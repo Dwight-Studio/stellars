@@ -23,8 +23,6 @@ mod pia;
 mod debug;
 mod mapper;
 
-pub const SCREEN_WIDTH: u32 = 160;
-
 #[derive(PartialEq, Clone)]
 pub enum VideoFormat {
     Ntsc,
@@ -35,8 +33,8 @@ pub enum VideoFormat {
 impl Display for VideoFormat {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let displ = match self {
-            VideoFormat::Ntsc => {"NTSC"}
-            VideoFormat::Pal => {"PAL"}
+            VideoFormat::Ntsc  => {"NTSC"}
+            VideoFormat::Pal   => {"PAL"}
             VideoFormat::Secam => {"SECAM"}
         };
         write!(f, "{}", displ)
@@ -92,8 +90,8 @@ impl Stellar {
     }
 
     pub fn get_picture_buffer(&self) -> Option<Vec<Color>> {
-        if self.frame_ready.load(Ordering::Relaxed) {
-            self.frame_ready.store(false, Ordering::Relaxed);
+        if self.frame_ready.load(Ordering::SeqCst) {
+            self.frame_ready.store(false, Ordering::SeqCst);
             Some(lock_read(&self.tia).pic_buffer.clone())
         } else {
             None

@@ -82,7 +82,8 @@ impl App {
             menu_content,
             state: AppState {
                 config_window_state: ConfigWindow::default(),
-                stellars_state: StellarsState::new(libstellars)
+                stellars_state: StellarsState::new(libstellars),
+                last_rom_path: None,
             },
         }
     }
@@ -90,14 +91,19 @@ impl App {
     fn menu_btn_clicked(&mut self, btn: Menus) {
         match btn {
             Menus::LoadRom => {
-                // TODO: It would be nice to keep the last selected file location so that the next
-                //       file dialog is opening at the old file location if possible.
+                let dir = match &self.state.last_rom_path {
+                    None => {std::env::home_dir().unwrap_or_default()}
+                    Some(path) => {path.clone()}
+                };
                 let file = FileDialog::new()
                     .add_filter("ROM File", &["a26", "bin"])
-                    .set_directory(std::env::home_dir().unwrap_or_default())
+                    .set_directory(dir)
                     .pick_file();
 
                 if let Some(path) = file {
+                    if let Some(last_path) = path.as_path().parent() {
+                        self.state.last_rom_path = Some(last_path.to_path_buf())
+                    }
                     self.state.stellars_state.run_rom(path);
                 }
             }

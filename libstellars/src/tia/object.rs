@@ -1,4 +1,3 @@
-use crate::SCREEN_WIDTH;
 use crate::tia::register::Register;
 
 pub(crate) struct Object {
@@ -22,7 +21,7 @@ impl Object {
         self.count += 1;
         self.can_draw = true;
 
-        if self.count >= SCREEN_WIDTH as u8 { self.counter_reset(true); }
+        if self.count >= 160 { self.counter_reset(true); }
     }
 
     pub fn counter_increment(&mut self, increment: u8) {

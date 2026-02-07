@@ -3,7 +3,7 @@ use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
-use libstellars::{Color, FormatDefinition, Stellar, VideoFormat, SCREEN_WIDTH};
+use libstellars::{Color, FormatDefinition, Stellar, VideoFormat};
 
 pub struct StellarsState {
     libstellars: Arc<RwLock<Stellar>>,
@@ -26,7 +26,7 @@ impl StellarsState {
             libstellars,
 
             target_framerate: Arc::new(RwLock::new(format.framerate())),
-            picture_buffer: Arc::new(RwLock::new(vec![Color::default(); SCREEN_WIDTH as usize * format.screen_height() as usize])),
+            picture_buffer: Arc::new(RwLock::new(vec![Color::default(); format.screen_width() as usize * format.screen_height() as usize])),
             is_running: Arc::new(AtomicBool::new(false)),
             should_stop: Arc::new(AtomicBool::new(false)),
             should_run: Arc::new(AtomicBool::new(false)),
@@ -45,6 +45,10 @@ impl StellarsState {
         }
     }
 
+    pub fn video_format(&self) -> FormatDefinition {
+        self.libstellars.read().unwrap_or_else(|e| e.into_inner()).curr_video_format()
+    }
+
     pub fn run_rom(&self, path: PathBuf) {
         self.should_run.store(false, Ordering::Relaxed);
         while self.is_running.load(Ordering::Relaxed) {}
@@ -60,7 +64,7 @@ impl StellarsState {
         if let Ok(libstellars) = self.libstellars.read() {
             libstellars.set_video_format(video_format);
             let format = self.libstellars.read().unwrap().curr_video_format();
-            self.picture_buffer.write().unwrap().resize(SCREEN_WIDTH as usize * format.screen_height() as usize, Color::default());
+            self.picture_buffer.write().unwrap().resize(format.screen_width() as usize * format.screen_height() as usize, Color::default());
             *self.target_framerate.write().unwrap() = format.framerate();
             self.should_run.store(true, Ordering::Relaxed);
         }
@@ -68,10 +72,6 @@ impl StellarsState {
 
     pub fn is_running(&self) -> bool {
         self.is_running.load(Ordering::Relaxed)
-    }
-
-    pub fn curr_video_format(&self) -> FormatDefinition {
-        self.libstellars.read().unwrap().curr_video_format()
     }
 
     pub fn reset(&self) {

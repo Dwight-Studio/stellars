@@ -4,7 +4,7 @@ mod object;
 mod audio_channel;
 pub mod format_definition;
 
-use crate::{bus_read, Color, Stellar, VideoFormat, SCREEN_WIDTH};
+use crate::{bus_read, Color, Stellar, VideoFormat};
 use std::sync::{RwLock, Weak};
 use std::sync::atomic::Ordering;
 use crate::debug::{TiaDebug};
@@ -164,10 +164,11 @@ pub struct Tia {
 
 impl Tia {
     pub fn new() -> Tia {
+        let format = FormatDefinition::ntsc();
         Self {
             bus: None,
             video_format: FormatDefinition::ntsc(),
-            pic_buffer: vec![Color::default(); SCREEN_WIDTH as usize * FormatDefinition::ntsc().full_frame as usize],
+            pic_buffer: vec![Color::default(); format.screen_width() as usize * format.screen_height() as usize],
             tia_debug: TiaDebug {
                 picture_scanline: 1,
                 horizontal_counter: 1,
@@ -180,7 +181,7 @@ impl Tia {
 
             pic_x: 0x0000,
             pic_y: 0x0000,
-            pf_pixels_per_bit: (SCREEN_WIDTH as u16 / 2) / 20,
+            pf_pixels_per_bit: (format.screen_width() / 2) / 20,
 
             missile0: Object::new(),
             missile1: Object::new(),
@@ -197,12 +198,14 @@ impl Tia {
     pub fn set_wo_reg(&mut self, address: u8, value: u8) {
         match WORegs::from(address) {
             WORegs::Vsync => {
-                if Register::new(value).bit(1) {
+                if Register::new(value).bit(1) && !self.get_wo_reg(WORegs::Vsync).bit(1) {
                     self.pic_y = 0;
                     self.pic_x = 0;
                     self.tia_debug.picture_scanline = 1;
                     self.tia_debug.horizontal_counter = 1;
+                    bus_read(&self.bus, |bus| { bus.frame_ready.store(true, Ordering::SeqCst) });
                 }
+                self.wo_regs[address as usize] = value;
             }
             WORegs::Wsync => { self.wo_regs[address as usize] = 0x1; }
             WORegs::Resp0 => { self.player0.counter_reset(false); }
@@ -282,9 +285,9 @@ impl Tia {
     pub fn tick(&mut self) {
         for _ in 0..3 {
             loop {
-                if self.pic_x >= 228 {
+                if self.pic_x >= self.video_format.frame_width {
                     self.pic_x = 0;
-                    if self.pic_y <= self.video_format.full_frame {
+                    if self.pic_y <= self.video_format.frame_height {
                         self.pic_y += 1;
                         self.tia_debug.picture_scanline = self.pic_y + 1;
                     }
@@ -292,7 +295,7 @@ impl Tia {
                     self.wo_regs[WORegs::Hmove as usize] = 0;
                 }
 
-                if self.pic_x >= 68 + self.get_wo_reg(WORegs::Hmove).value as u16 && self.pic_y < self.video_format.full_frame {
+                if self.pic_x >= 68 + self.get_wo_reg(WORegs::Hmove).value as u16 && self.pic_y < self.video_format.frame_height {
                     if self.pic_y >= self.video_format.vblank as u16 {
                         self.check_player(0);
                         self.check_player(1);
@@ -315,7 +318,7 @@ impl Tia {
                             self.draw_background();
                         }
                     } else {
-                        self.pic_buffer[self.pic_y as usize * SCREEN_WIDTH as usize + (self.pic_x as usize - 68)] = self.video_format.palette[0x00];
+                        self.pic_buffer[self.pic_y as usize * self.video_format.screen_width() as usize + (self.pic_x as usize - 68)] = self.video_format.palette[0x00];
                     }
 
                     self.collision = Collision::default();
@@ -368,7 +371,7 @@ impl Tia {
     }
 
     pub fn reset(&mut self) {
-        self.pic_buffer = vec![Color::default(); SCREEN_WIDTH as usize * self.video_format.full_frame as usize];
+        self.pic_buffer = vec![Color::default(); self.video_format.screen_width() as usize * self.video_format.screen_height() as usize];
         self.tia_debug  = TiaDebug {
             picture_scanline: 1,
             horizontal_counter: 1,
@@ -381,7 +384,7 @@ impl Tia {
 
         self.pic_x = 0x0000;
         self.pic_y = 0x0000;
-        self.pf_pixels_per_bit = (SCREEN_WIDTH as u16 / 2) / 20;
+        self.pf_pixels_per_bit = (self.video_format.screen_width() / 2) / 20;
 
         self.missile0 = Object::new();
         self.missile1 = Object::new();
@@ -403,7 +406,7 @@ impl Tia {
             VideoFormat::Pal   => { self.video_format = FormatDefinition::pal(); }
             VideoFormat::Secam => { self.video_format = FormatDefinition::secam(); }
         }
-        self.pic_buffer = vec![Color::default(); SCREEN_WIDTH as usize * self.video_format.full_frame as usize]
+        self.pic_buffer = vec![Color::default(); self.video_format.screen_width() as usize * self.video_format.frame_height as usize]
     }
     
     pub fn curr_video_format(&self) -> FormatDefinition {
@@ -414,13 +417,13 @@ impl Tia {
         let rel_pic_x = self.pic_x - 68;
         let pf_register = (self.get_wo_reg(WORegs::Pf0).value.reverse_bits() as u32) << 16 | (self.get_wo_reg(WORegs::Pf1).value as u32) << 8 | (self.get_wo_reg(WORegs::Pf2).value.reverse_bits() as u32);
 
-        if (rel_pic_x < SCREEN_WIDTH as u16 / 2 && (pf_register >> (19 - rel_pic_x / self.pf_pixels_per_bit)) & 0x1 == 1) || // If in first half of screen draw PF pixels as is
-            (rel_pic_x >= SCREEN_WIDTH as u16 / 2 && !self.get_wo_reg(WORegs::Ctrlpf).bit(0) && (pf_register >> (19 - (rel_pic_x % (SCREEN_WIDTH as u16 / 2)) / self.pf_pixels_per_bit)) & 0x1 == 1) || // If in second half of screen and in Duplication mode draw the exact same thing as the first half of screen
-            (rel_pic_x >= SCREEN_WIDTH as u16 / 2 && self.get_wo_reg(WORegs::Ctrlpf).bit(0) && (pf_register >> ((rel_pic_x % (SCREEN_WIDTH as u16 / 2)) / self.pf_pixels_per_bit)) & 0x1 == 1) { // If in second half of screen and in Reflection mode, draw the mirrored version of the first half of screen
+        if (rel_pic_x < self.video_format.screen_width() / 2 && (pf_register >> (19 - rel_pic_x / self.pf_pixels_per_bit)) & 0x1 == 1) || // If in first half of screen draw PF pixels as is
+            (rel_pic_x >= self.video_format.screen_width() / 2 && !self.get_wo_reg(WORegs::Ctrlpf).bit(0) && (pf_register >> (19 - (rel_pic_x % (self.video_format.screen_width() / 2)) / self.pf_pixels_per_bit)) & 0x1 == 1) || // If in second half of screen and in Duplication mode draw the exact same thing as the first half of screen
+            (rel_pic_x >= self.video_format.screen_width() / 2 && self.get_wo_reg(WORegs::Ctrlpf).bit(0) && (pf_register >> ((rel_pic_x % (self.video_format.screen_width() / 2)) / self.pf_pixels_per_bit)) & 0x1 == 1) { // If in second half of screen and in Reflection mode, draw the mirrored version of the first half of screen
 
             let mut color: WORegs = WORegs::Colupf;
             if self.get_wo_reg(WORegs::Ctrlpf).bit(1) {
-                color = if rel_pic_x < SCREEN_WIDTH as u16 / 2 { WORegs::Colup0 } else { WORegs::Colup1 };
+                color = if rel_pic_x < self.video_format.screen_width() / 2 { WORegs::Colup0 } else { WORegs::Colup1 };
             }
             self.collision.playfield = Some(color);
         }
@@ -527,11 +530,7 @@ impl Tia {
     }
 
     fn push_pixel(&mut self, color_reg: WORegs) {
-        self.pic_buffer[self.pic_y as usize * SCREEN_WIDTH as usize + (self.pic_x as usize - 68)] = self.video_format.palette[self.get_wo_reg(color_reg).value as usize];
-
-        if self.pic_y as usize * 228 + self.pic_x as usize >= self.video_format.total_counts - 1 {
-            bus_read(&self.bus, |bus| { bus.frame_ready.store(true, Ordering::Relaxed) });
-        }
+        self.pic_buffer[self.pic_y as usize * self.video_format.screen_width() as usize + (self.pic_x as usize - 68)] = self.video_format.palette[self.get_wo_reg(color_reg).value as usize];
     }
 
     fn compute_collisions(&mut self) {

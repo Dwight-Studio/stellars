@@ -1,4 +1,4 @@
-use libstellars::{Stellar, SCREEN_WIDTH};
+use libstellars::{FormatDefinition, Stellar};
 use std::sync::{Arc, RwLock};
 use eframe::egui::{ColorImage, Context, Image, Key, TextureHandle, TextureOptions, Ui};
 use eframe::emath::Vec2;
@@ -11,22 +11,23 @@ use crate::app::app_state::AppState;
 pub struct StellarsRender {
     libstellars: Arc<RwLock<Stellar>>,
 
+    video_format: FormatDefinition,
     splash: ColorImage,
     texture: TextureHandle,
 }
 
-// TODO: The emulator video format should be stored is struct.
 impl StellarsRender {
     pub fn new(libstellars: Arc<RwLock<Stellar>>, ctx: Context) -> Self {
-        let format = libstellars.read().unwrap().curr_video_format();
+        let format = libstellars.read().unwrap_or_else(|e| e.into_inner()).curr_video_format();
         let start_img =  {
             if let Ok(splash) = load_image_from_path(&get_asset_path("splash.jpg")) { splash }
-            else { ColorImage::from_rgb([SCREEN_WIDTH as usize, format.screen_height() as usize], &vec![0; SCREEN_WIDTH as usize * format.screen_height() as usize * 3]) }
+            else { ColorImage::from_rgb([format.screen_width() as usize, format.screen_height() as usize], &vec![0; format.screen_width() as usize * format.screen_height() as usize * 3]) }
         };
 
         Self {
             libstellars,
 
+            video_format: format,
             splash: start_img.clone(),
             texture: ctx.load_texture("render_texture", start_img, TextureOptions::NEAREST),
         }
@@ -34,8 +35,8 @@ impl StellarsRender {
 
     pub fn render(&mut self, ui: &mut Ui, state: &AppState) {
         let stellars_state = &state.stellars_state;
-        let format = stellars_state.curr_video_format();
-        let mut buff = Vec::<u8>::with_capacity(SCREEN_WIDTH as usize * format.screen_height() as usize * 3);
+        self.video_format = stellars_state.video_format();
+        let mut buff = Vec::<u8>::with_capacity(self.video_format.screen_width() as usize * self.video_format.screen_height() as usize * 3);
         let available_size = ui.available_size();
 
         if stellars_state.is_running() {
@@ -49,7 +50,7 @@ impl StellarsRender {
 
             drop(picture_buffer);
 
-            self.texture.set(ColorImage::from_rgb([SCREEN_WIDTH as usize, format.screen_height() as usize], &buff), TextureOptions::NEAREST);
+            self.texture.set(ColorImage::from_rgb([self.video_format.screen_width() as usize, self.video_format.screen_height() as usize], &buff), TextureOptions::NEAREST);
         } else {
             self.texture.set(self.splash.clone(), TextureOptions::LINEAR);
         }
