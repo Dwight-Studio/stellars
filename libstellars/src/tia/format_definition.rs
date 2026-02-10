@@ -20,6 +20,9 @@ impl FormatDefinition {
     pub fn framerate(&self) -> f32 {
         self.framerate
     }
+    pub fn vblank(&self) -> u8 {
+        self.vblank
+    }
 
     pub(crate) fn ntsc() -> FormatDefinition {
         Self {

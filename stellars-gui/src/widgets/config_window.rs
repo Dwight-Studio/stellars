@@ -2,19 +2,18 @@ use eframe::egui::{ComboBox, Context, Grid, Window};
 use libstellars::VideoFormat;
 use crate::app::app_state::AppState;
 
-enum ConfigWindowEvent {
-    VideoFormatChanged,
-}
-
+#[derive(Clone)]
 pub struct ConfigWindow {
     pub opened: bool,
-    selected_value: VideoFormat,
+
+    sel_video_format: VideoFormat,
+    hide_vblank: bool,
 }
 
 impl ConfigWindow {
     pub fn show(ctx: &Context, state: &mut AppState) {
         let config_state = &mut state.config_window_state;
-        let old_value = config_state.selected_value.clone();
+        let old_value = config_state.clone();
 
         Window::new("Stellars Configuration")
             .open(&mut config_state.opened)
@@ -26,24 +25,25 @@ impl ConfigWindow {
                     .show(ui, |ui| {
                         ui.label("Video Format:");
                         ComboBox::from_id_salt("video_format")
-                            .selected_text(format!("{}", config_state.selected_value))
+                            .selected_text(format!("{}", config_state.sel_video_format))
                             .show_ui(ui, |ui| {
-                                ui.selectable_value(&mut config_state.selected_value, VideoFormat::Ntsc, "NTSC");
-                                ui.selectable_value(&mut config_state.selected_value, VideoFormat::Pal, "PAL");
-                                ui.selectable_value(&mut config_state.selected_value, VideoFormat::Secam, "SECAM");
+                                ui.selectable_value(&mut config_state.sel_video_format, VideoFormat::Ntsc, "NTSC");
+                                ui.selectable_value(&mut config_state.sel_video_format, VideoFormat::Pal, "PAL");
+                                ui.selectable_value(&mut config_state.sel_video_format, VideoFormat::Secam, "SECAM");
                             });
                         ui.end_row();
+
+                        ui.label("Hide VBlank:");
+                        ui.checkbox(&mut config_state.hide_vblank, "");
                     });
         });
 
-        if old_value != config_state.selected_value {
-            Self::config_window_event(state, ConfigWindowEvent::VideoFormatChanged);
+        let curr_value = config_state.clone();
+        if old_value.sel_video_format != curr_value.sel_video_format {
+            state.stellars_state.set_video_format(state.config_window_state.sel_video_format.clone())
         }
-    }
-    
-    fn config_window_event(state: &mut AppState, config_event: ConfigWindowEvent) {
-        match config_event { 
-            ConfigWindowEvent::VideoFormatChanged => {state.stellars_state.set_video_format(state.config_window_state.selected_value.clone())} 
+        if old_value.hide_vblank != curr_value.hide_vblank {
+            state.stellars_state.hide_vblank(curr_value.hide_vblank);
         }
     }
 }
@@ -52,7 +52,9 @@ impl Default for ConfigWindow {
     fn default() -> Self {
         Self {
             opened: false,
-            selected_value: VideoFormat::Ntsc,
+
+            sel_video_format: VideoFormat::Ntsc,
+            hide_vblank: false,
         }
     }
 }

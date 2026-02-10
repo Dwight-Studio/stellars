@@ -36,21 +36,37 @@ impl StellarsRender {
     pub fn render(&mut self, ui: &mut Ui, state: &AppState) {
         let stellars_state = &state.stellars_state;
         self.video_format = stellars_state.video_format();
-        let mut buff = Vec::<u8>::with_capacity(self.video_format.screen_width() as usize * self.video_format.screen_height() as usize * 3);
+        let mut buff = if state.stellars_state.vblank_hidden() {
+            Vec::<u8>::with_capacity(self.video_format.screen_width() as usize * self.video_format.screen_height() as usize * 3)
+        } else {
+            Vec::<u8>::with_capacity(self.video_format.screen_width() as usize * (self.video_format.screen_height() - self.video_format.vblank() as u16) as usize * 3)
+        };
         let available_size = ui.available_size();
 
         if stellars_state.is_running() {
             let picture_buffer = stellars_state.picture_buffer();
 
-            for pixel in picture_buffer.iter() {
-                buff.push(pixel.r);
-                buff.push(pixel.g);
-                buff.push(pixel.b);
+            if state.stellars_state.vblank_hidden() {
+                for pixel in picture_buffer.split_at(self.video_format.screen_width() as usize * self.video_format.vblank() as usize).1 {
+                    buff.push(pixel.r);
+                    buff.push(pixel.g);
+                    buff.push(pixel.b);
+                }
+            } else {
+                for pixel in picture_buffer.iter() {
+                    buff.push(pixel.r);
+                    buff.push(pixel.g);
+                    buff.push(pixel.b);
+                }
             }
 
             drop(picture_buffer);
-
-            self.texture.set(ColorImage::from_rgb([self.video_format.screen_width() as usize, self.video_format.screen_height() as usize], &buff), TextureOptions::NEAREST);
+            
+            if state.stellars_state.vblank_hidden() {
+                self.texture.set(ColorImage::from_rgb([self.video_format.screen_width() as usize, self.video_format.screen_height() as usize - self.video_format.vblank() as usize], &buff), TextureOptions::NEAREST);
+            } else {
+                self.texture.set(ColorImage::from_rgb([self.video_format.screen_width() as usize, self.video_format.screen_height() as usize], &buff), TextureOptions::NEAREST);
+            }
         } else {
             self.texture.set(self.splash.clone(), TextureOptions::LINEAR);
         }

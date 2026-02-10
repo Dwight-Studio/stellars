@@ -14,6 +14,7 @@ pub struct StellarsState {
     should_stop: Arc<AtomicBool>,
     should_run: Arc<AtomicBool>,
     emu_thread: Option<JoinHandle<()>>,
+    hide_vblank: bool,
 }
 
 impl StellarsState {
@@ -31,6 +32,8 @@ impl StellarsState {
             should_stop: Arc::new(AtomicBool::new(false)),
             should_run: Arc::new(AtomicBool::new(false)),
             emu_thread: None,
+            
+            hide_vblank: false,
         };
 
         state.run();
@@ -68,6 +71,14 @@ impl StellarsState {
             *self.target_framerate.write().unwrap() = format.framerate();
             self.should_run.store(true, Ordering::Relaxed);
         }
+    }
+    
+    pub fn hide_vblank(&mut self, hide: bool) {
+        self.hide_vblank = hide;
+    }
+    
+    pub fn vblank_hidden(&self) -> bool {
+        self.hide_vblank
     }
 
     pub fn is_running(&self) -> bool {

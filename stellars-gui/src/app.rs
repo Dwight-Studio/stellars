@@ -222,3 +222,7 @@ fn get_asset_path(filename: &str) -> PathBuf {
 
     PathBuf::from("assets").join(filename)
 }
+
+// TODO: Add user inputs mapping
+// TODO: Add user preferences persistence
+// TODO: Add an option to hide overscan
